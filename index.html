@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<title>방송 도우미</title>
+<style>
+
+body {
+  font-family: 'Pretendard','Noto Sans KR', Arial;
+  background: linear-gradient(135deg,#fce7f3,#e0e7ff);
+  color:#333;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:20px;
+}
+
+
+.menu { margin-bottom: 30px; }
+
+
+button {
+  margin:5px;
+  padding:10px 18px;
+  cursor:pointer;
+  border-radius:999px;
+  border:none;
+  background:#a78bfa;
+  color:white;
+  box-shadow:0 4px 10px rgba(0,0,0,0.1);
+  transition:0.2s;
+}
+button:hover{
+  background:#8b5cf6;
+  transform:scale(1.05);
+}
+
+
+
+.section {
+  display:none;
+  text-align:center;
+  background:white;
+  padding:20px;
+  border-radius:20px;
+  box-shadow:0 10px 25px rgba(0,0,0,0.1);
+}
+
+.active-section { display: block; }
+
+/* 펀딩 */
+#fundingInput::placeholder { color: #aaa; }
+
+/* ===== 빙고 ===== */
+
+.bingo-wrapper {
+  width: 300px;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+  background: #fff0f6;
+}
+
+
+
+.bingo-header {
+  background: linear-gradient(90deg,#f9a8d4,#a78bfa);
+  color: white;
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+}
+
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(5, 60px);
+}
+
+
+.cell {
+  width: 60px;
+  height: 60px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 2px solid #fbcfe8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #444;
+  font-weight: bold;
+  transition: 0.2s;
+}
+
+
+
+.active {
+  background: #f472b6;
+  color: white;
+  border: 2px solid #ec4899;
+}
+
+
+/* ===== 선입 계산기 ===== */
+
+#queueContainer {
+  display: grid;
+  gap: 15px;
+  justify-content: flex-start;
+}
+
+
+
+.player {
+  background: #ffffff;
+  padding: 15px;
+  border-radius: 16px;
+  width: 220px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.1);
+}
+
+
+
+.player input {
+  width: 95%;
+  margin-bottom: 8px;
+  text-align:left;
+}
+
+
+
+.player textarea {
+  width: 95%;
+  height: 90px;
+}
+
+
+.sum {
+  font-weight: bold;
+  color: #a78bfa;
+}
+
+
+
+#resultBox {
+  background: #fff7ed;
+  color: black;
+  padding: 20px;
+  border-radius: 16px;
+  width: 320px;
+  min-height: 300px;
+  white-space: pre-line;
+}
+
+
+
+.cell:hover { transform: scale(1.08); }
+.cell:active { transform: scale(0.9); }
+#roomList {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.room-card {
+  padding: 16px;
+  border-radius: 18px;
+  background: linear-gradient(135deg,#fdf2f8,#e0e7ff);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.room-card:hover {
+  transform: translateY(-5px) scale(1.03);
+  box-shadow: 0 12px 25px rgba(0,0,0,0.2);
+}
+
+/* 반짝 효과 */
+.room-card::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(120deg, transparent, rgba(255,255,255,0.4), transparent);
+  transform: rotate(25deg);
+  opacity: 0;
+}
+
+.room-card:hover::after {
+  animation: shine 0.8s;
+}
+
+@keyframes shine {
+  0% { opacity: 0; transform: translateX(-100%) rotate(25deg); }
+  50% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(100%) rotate(25deg); }
+}
+
+.room-title {
+  font-weight: bold;
+  font-size: 15px;
+}
+
+.room-sub {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+}
+</style>
+</head>
+<body>
+<h1 style="font-size:28px;
+background:linear-gradient(90deg,#f472b6,#a78bfa);
+-webkit-background-clip:text;
+color:transparent;">
+🎀 금규리 도우미 🎀
+</h1>
+<div class="menu">
+<button onclick="showSection('funding')">펀딩 계산기</button>
+<button onclick="showSection('queue')">선입 계산기</button>
+<button onclick="showSection('bingo')">빙고</button>
+<button onclick="showSection('gyuriGame')">🎮 진격의 규리</button>
+</div>
+<!-- 펀딩 -->
+<div class="section active-section" id="funding">
+<h2>펀딩 계산기</h2>
+<textarea id="fundingInput" placeholder="고현수 2000
+금규리 40" rows="12" style="width:300px;"></textarea>
+<p>총합: <span id="total">0</span> 개</p>
+</div>
+<!-- 선입 계산기 -->
+<div class="section" id="queue">
+<div id="queueLayout" style="display:flex; gap:30px; align-items:flex-start; justify-content:center;">
+<h2>선입 계산기</h2>
+<button onclick="createQueue(2)">2명</button>
+<button onclick="createQueue(3)">3명</button>
+<button onclick="createQueue(4)">4명</button>
+<div id="queueContainer"></div>
+<div id="resultBox">정산 결과가 여기에 표시됩니다</div></div>
+</div>
+<div class="section" id="gyuriGame">
+<h2>🎮 진격의 규리</h2>
+<button onclick="startGame()">▶ 게임 시작</button>
+<div style="display:flex; gap:20px; align-items:flex-start; justify-content:center;">
+<!-- 랭킹 -->
+<div>
+<div id="rankingBox" style="white-space:pre-line; width:200px;"></div>
+</div>
+<!-- 게임 -->
+<div>
+<canvas height="400" id="gameCanvas" width="600"></canvas>
+<div id="ui">Time: 0</div>
+</div>
+</div>
+</div>
+<!-- 빙고 -->
+<div class="section" id="bingo">
+<h2>빙고</h2>
+<div id="lobby" style="margin-bottom:15px;">
+<button onclick="openCreateRoom()">방 만들기</button>
+<div id="roomList" style="margin-top:10px; max-height:200px; overflow:auto;"></div>
+</div>
+<div id="bingoBoard" style="display:none;"><!-- 🔥 여기 추가 -->
+<div style="display:flex; gap:20px; align-items:flex-start; justify-content:center;">
+
+  <!-- 🎯 왼쪽: 빙고판 -->
+  <div>
+    <div class="bingo-wrapper">
+      <div class="bingo-header">
+        <div><span id="bingoCount">0</span>빙고</div>
+        <div>남은칸 <span id="remaining">25</span></div>
+        <div>🍗 <span id="chicken">0</span></div>
+      </div>
+      <div class="grid" id="bingoGrid"></div>
+    </div>
+
+    <div style="width:300px; display:flex; justify-content:space-between; margin-top:5px;">
+      <button onclick="goBackLobby()">⬅ 뒤로가기</button>
+      <button onclick="resetBingo()">리셋</button>
+    </div>
+  </div>
+
+  <!-- 👉 오른쪽: 접속자 + 채팅 -->
+  <div style="width:260px; display:flex; flex-direction:column; gap:10px;">
+
+    <!-- 접속자 -->
+    <div style="background:#fff; padding:10px; border-radius:10px;">
+      <b>👥 접속자</b>
+      <div id="userList"></div>
+    </div>
+
+    <!-- 채팅 -->
+    <div style="background:#fff; padding:10px; border-radius:10px;">
+      <div id="chatBox" style="height:200px; overflow:auto; border:1px solid #eee; margin-bottom:5px;"></div>
+      <input id="chatInput" placeholder="채팅 입력" style="width:70%;">
+      <button onclick="sendChat()">전송</button>
+    </div>
+
+  </div>
+
+</div>
+<script>
+function initBingoGrid() {
+  const grid = document.getElementById('bingoGrid');
+  grid.innerHTML = "";
+
+  activeCells = Array(25).fill(false);
+
+  const letters = [
+    'A','B','C','D','E',
+    'F','G','H','I','J',
+    'K','L','M','N','O',
+    'P','Q','R','S','T',
+    'U/V','W','X','Y','Z'
+  ];
+
+  for (let i = 0; i < 25; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.innerText = letters[i];
+
+    cell.onclick = () => {
+      cell.classList.toggle('active');
+      activeCells[i] = !activeCells[i];
+
+      const activeCount = activeCells.filter(v => v).length;
+      document.getElementById('remaining').innerText = 25 - activeCount;
+
+      checkBingo();
+      saveBingo();
+    };
+
+    grid.appendChild(cell);
+  }
+}
+// 화면 전환
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active-section'));
+  document.getElementById(id).classList.add('active-section');
+}
+
+// ===== 펀딩 =====
+const fundingInput = document.getElementById('fundingInput');
+fundingInput.addEventListener('input', () => {
+  let total = 0;
+  fundingInput.value.split('\n').forEach(line => {
+    const num = Number(line.split(' ').pop());
+    if (!isNaN(num)) total += num;
+  });
+  document.getElementById('total').innerText = total;
+});
+
+// ===== 선입 계산기 =====
+function createQueue(count) {
+  const container = document.getElementById('queueContainer');
+  container.innerHTML = '';
+  container.style.gridTemplateColumns = 'repeat(2, 220px)';
+
+  for (let i = 0; i < count; i++) {
+    const div = document.createElement('div');
+    div.className = 'player';
+
+    div.innerHTML = `
+      <input class="name" placeholder="이름">
+      <textarea class="balloonInput" placeholder="숫자 아무렇게나 입력"></textarea>
+      <div>합계: <span class="sum">0</span></div>
+    `;
+
+    div.querySelector('.balloonInput').addEventListener('input', updateAll);
+    div.querySelector('.name').addEventListener('input', updateAll);
+
+    container.appendChild(div);
+  }
+}
+
+function updateAll() {
+  const blocks = document.querySelectorAll('.player');
+  let players = [];
+
+  blocks.forEach(block => {
+    const text = block.querySelector('.balloonInput').value;
+    let sum = 0;
+
+    const numbers = text.match(/\d+/g) || [];
+    numbers.forEach(n => sum += Number(n));
+
+    block.querySelector('.sum').innerText = sum;
+
+    players.push({
+      name: block.querySelector('.name').value || '이름없음',
+      sum: sum
+    });
+  });
+
+let resultText = '';
+const n = players.length;
+
+let transfers = [];
+
+// 1. 각자 1/N 값
+let shares = players.map(p => ({
+  name: p.name,
+  share: p.sum / n
+}));
+
+// 2. 비교
+shares.forEach(p1 => {
+  shares.forEach(p2 => {
+    if (p1.name === p2.name) return;
+
+    const diff = p1.share - p2.share;
+
+    if (diff > 0) {
+      transfers.push({
+        from: p1.name,
+        to: p2.name,
+        amount: diff
+      });
+    }
+  });
+});
+
+// 3. 출력
+resultText = '💰 정산\n\n';
+
+players.forEach(p => {
+  const related = transfers.filter(t => t.from === p.name);
+
+  if (related.length === 0) return;
+
+  resultText += `${p.name}\n`;
+
+  related.forEach(t => {
+    const bean = (t.amount / 200).toFixed(3);
+    resultText += `   → ${t.to} : ${t.amount}개 (${bean}콩)\n`;
+  });
+
+  resultText += '\n';
+});
+
+document.getElementById('resultBox').innerText = resultText;
+}
+
+// ===== 빙고 =====
+const grid = document.getElementById('bingoGrid');
+let activeCells = Array(25).fill(false);
+
+for (let i = 0; i < 25; i++) {
+  const cell = document.createElement('div');
+  cell.className = 'cell';
+  const letters = [
+  'A','B','C','D','E',
+  'F','G','H','I','J',
+  'K','L','M','N','O',
+  'P','Q','R','S','T',
+  'U/V','W','X','Y','Z'
+];
+  cell.innerText = letters[i];
+
+  cell.onclick = () => {
+    cell.classList.toggle('active');
+    activeCells[i] = !activeCells[i];
+
+    const activeCount = activeCells.filter(v => v).length;
+    document.getElementById('remaining').innerText = 25 - activeCount;
+
+    checkBingo();
+saveBingo();
+  };
+
+  grid.appendChild(cell);
+}
+
+function checkBingo() {
+  let count = 0;
+
+  for (let r = 0; r < 5; r++)
+    if (activeCells.slice(r*5, r*5+5).every(v => v)) count++;
+
+  for (let c = 0; c < 5; c++) {
+    let col = [];
+    for (let r = 0; r < 5; r++) col.push(activeCells[r*5 + c]);
+    if (col.every(v => v)) count++;
+  }
+
+  if ([0,6,12,18,24].every(i => activeCells[i])) count++;
+  if ([4,8,12,16,20].every(i => activeCells[i])) count++;
+
+  document.getElementById('bingoCount').innerText = count;
+}
+
+function resetBingo() {
+  activeCells = Array(25).fill(false);
+  document.querySelectorAll('.cell').forEach(cell => cell.classList.remove('active'));
+  document.getElementById('remaining').innerText = 25;
+  document.getElementById('bingoCount').innerText = 0;
+}
+
+// 🍗 길게 눌러 변경
+let chicken = 0;
+const chickenSpan = document.getElementById('chicken');
+let timer;
+
+chickenSpan.onmousedown = () => {
+  timer = setTimeout(() => {
+    const num = Number(prompt('0~10'));
+    if (!isNaN(num)) {
+      chicken = num;
+      chickenSpan.innerText = chicken;
+saveBingo();
+    }
+  }, 500);
+};
+chickenSpan.onmouseup = () => clearTimeout(timer);
+
+// ===== 진격의 규리 =====
+const playerImg = new Image();
+playerImg.src = "player.png";
+
+const enemyImg = new Image();
+enemyImg.src = "enemy.png";
+
+let canvas = document.getElementById("gameCanvas");
+let ctx = canvas.getContext("2d");
+
+let player, enemies, startTime, gameOver;
+let pausedTime = 0;
+let hiddenStart = 0;
+let isPaused = false;
+let keys = {};
+
+document.addEventListener("keydown", e => keys[e.key]=true);
+document.addEventListener("keyup", e => keys[e.key]=false);
+function pauseGameTime() {
+  if (!isPaused) {
+    isPaused = true;
+    hiddenStart = Date.now();
+  }
+}
+
+function resumeGameTime() {
+  if (isPaused) {
+    isPaused = false;
+    pausedTime += Date.now() - hiddenStart;
+  }
+}
+
+// 탭 숨김
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) pauseGameTime();
+  else resumeGameTime();
+});
+
+// 알탭 / 다른 창 클릭
+window.addEventListener("blur", pauseGameTime);
+
+// 다시 돌아옴
+window.addEventListener("focus", resumeGameTime);
+
+function startGame(){
+keys = {}; // 🔥 이 줄 추가
+  player = {x:300,y:200,r:10,speed:4};
+  enemies = [];
+  startTime = Date.now();
+  gameOver = false;
+  lastTime = 0;
+ // 🔥 추가 (중요)
+  pausedTime = 0;
+  isPaused = false;
+  requestAnimationFrame(loop);
+}
+
+function spawnEnemy(){
+  const time = (Date.now() - startTime - pausedTime) / 1000;
+
+  const baseSpeed = 0.8 + Math.random()*1.0;
+  const speed = Math.min(baseSpeed + time * 0.1, 3.5);
+
+  enemies.push({
+    x:Math.random()*600,
+    y:0,
+    speed: speed
+  });
+}
+
+setInterval(()=>{ if(!gameOver) spawnEnemy(); },1000);
+
+function update(delta){
+  if(gameOver) return;
+
+  if(keys["w"]) player.y-=player.speed * delta;
+if(keys["s"]) player.y+=player.speed * delta;
+if(keys["a"]) player.x-=player.speed * delta;
+if(keys["d"]) player.x+=player.speed * delta;
+// 🔥 화면 밖 못 나가게 제한
+if (player.x < 0) player.x = 0;
+if (player.y < 0) player.y = 0;
+
+if (player.x > canvas.width) player.x = canvas.width;
+if (player.y > canvas.height) player.y = canvas.height;
+  enemies.forEach(e=>{
+    let dx=player.x-e.x;
+    let dy=player.y-e.y;
+    let dist=Math.hypot(dx,dy);
+
+  e.x += dx/dist * e.speed * delta;
+e.y += dy/dist * e.speed * delta;
+
+
+    if(dist<25){
+      gameOver=true;
+      
+const score = ((Date.now() - startTime - pausedTime) / 1000).toFixed(2);
+saveScoreToServer(null, score);
+alert("생존: "+score+"초");
+
+    }
+  });
+}
+
+function draw(){
+  ctx.fillStyle = "#C2B280";
+ctx.fillRect(0, 0, 600, 400);
+
+  // 플레이어
+  ctx.drawImage(playerImg, player.x - 32, player.y - 32, 64, 64);
+
+  // 적
+  enemies.forEach(e=>{
+    ctx.drawImage(enemyImg, e.x - 20, e.y - 20, 40, 40);
+  });
+
+  if(!gameOver){
+    document.getElementById("ui").innerText =
+      "Time: "+((Date.now() - startTime - pausedTime)/1000).toFixed(1);
+  }
+}
+
+
+let lastTime = 0;
+
+function loop(time){
+  if(gameOver) return;
+
+  const delta = (time - lastTime) / 16.67;
+  lastTime = time;
+
+  update(delta);
+  draw();
+
+  requestAnimationFrame(loop);
+}
+
+
+// ===== 랭킹 =====
+let rankingVisible = true;
+window.addEventListener('load', ()=>{ loadRanking(); });
+
+function toggleRanking(){
+  rankingVisible = !rankingVisible;
+  if(rankingVisible) loadRanking();
+  
+}
+
+
+</script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+// Firestore
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  onSnapshot,
+  collection,
+  addDoc,
+  query,
+  orderBy,
+  limit,
+  getDocs,
+  deleteDoc,
+  getDoc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// Realtime DB (완전 따로!)
+import {
+  getDatabase,
+  ref,
+  set,
+  onValue,
+  onDisconnect,
+  remove
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";const firebaseConfig = {
+  apiKey: "AIzaSyDMPP4cTbMIIAFE7PBykIdydmhOEb_j3UE",
+  authDomain: "gyut5-8a2fc.firebaseapp.com",
+  projectId: "gyut5-8a2fc",
+  storageBucket: "gyut5-8a2fc.firebasestorage.app",
+  messagingSenderId: "894803113431",
+  appId: "1:894803113431:web:5196fc81d722025ba98792",
+  measurementId: "G-GXDCHV49L8"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const rtdb = getDatabase(app);
+
+// 랭킹 컬렉션
+const rankingRef = collection(db, "ranking");
+
+window.saveScoreToServer = async (name, score) => {
+  const q = query(rankingRef, orderBy("score","desc"), limit(10));
+  const snapshot = await getDocs(q);
+
+  let isTop10 = false;
+
+  if (snapshot.size < 10) {
+    isTop10 = true;
+  } else {
+    const last = snapshot.docs[snapshot.docs.length - 1].data().score;
+    if (Number(score) > last) isTop10 = true;
+  }
+
+  if (!isTop10) {
+    alert("TOP10 밖이라 저장 안됨");
+    return;
+  }
+
+  // 👉 여기서만 이름 입력
+  const finalName = prompt("TOP10 진입! 이름 입력") || "익명";
+
+  await addDoc(rankingRef, {
+    name: finalName,
+    score: Number(score),
+    time: Date.now()
+  });
+
+  alert("🏆 랭킹 등록 완료!");
+};
+window.loadRanking = () => {
+  const q = query(rankingRef, orderBy("score","desc"), limit(10));
+  onSnapshot(q, (snapshot)=>{
+    let text = "🏆 TOP 10\n\n";
+    let i=1;
+    snapshot.forEach(doc=>{
+      const d = doc.data();
+      text += `${i}. ${d.name} - ${d.score}초\n`;
+      i++;
+    });
+    document.getElementById("rankingBox").innerText = text;
+  });
+};
+
+// 🔥 문서 참조
+// removed old bingoRef
+
+// 🔥 전역에서 쓰게
+window.saveQueue = async (players) => {
+  await setDoc(queueRef, { players });
+};
+
+window.saveBingo = async () => {
+  if (!roomId) return;
+  await setDoc(doc(db, "rooms", roomId), {
+    cells: activeCells,
+    chicken: chicken
+  }, { merge: true });
+};
+
+// ===== 방 시스템 =====
+let roomId = null;
+let userName = null;
+let userId = null;
+let userColor = null;
+let bingoRef = null;
+const roomListDiv = document.getElementById("roomList");
+
+window.openCreateRoom = () => {
+  const name = prompt("방 제목");
+  if (!name) return;
+  const password = prompt("비밀번호");
+  if (!password) return;
+  createRoom(name, password);
+};
+
+async function createRoom(name, password) {
+  const expireMinutes = 720;
+  await addDoc(collection(db, "rooms"), {
+    name,
+    password,
+    cells: Array(25).fill(false),
+    chicken: 0,
+    createdAt: Date.now(),
+    expiresAt: Date.now() + expireMinutes * 60 * 1000
+  });
+  alert("방 생성 완료!");
+}
+
+onSnapshot(collection(db, "rooms"), (snapshot) => {
+  roomListDiv.innerHTML = "";
+  snapshot.forEach(async (docSnap) => {
+    const data = docSnap.data();
+
+    if (data.expiresAt && Date.now() > data.expiresAt) {
+      await deleteDoc(doc(db, "rooms", docSnap.id));
+      return;
+    }
+
+   const div = document.createElement("div");
+div.className = "room-card";
+
+const activeCount = (data.cells || []).filter(v => v).length;
+
+div.innerHTML = `
+  <div class="room-title">🎯 ${data.name}</div>
+  <div class="room-sub">진행도 ${activeCount}/25</div>
+`;
+    div.onclick = () => enterRoom(docSnap.id, data.password);
+    roomListDiv.appendChild(div);
+  });
+});
+
+function enterRoom(id, password) {
+  const input = prompt("비밀번호 입력");
+  if (input !== password) {
+    alert("비밀번호 틀림");
+    return;
+  }
+
+  // 🔥 이름 입력
+  userName = prompt("너의 이름은?");
+  if (!userName) return;
+
+  userId = Date.now().toString();
+
+  // 🔥 랜덤 색상
+  userColor = "#" + Math.floor(Math.random()*16777215).toString(16);
+
+  getDoc(doc(db, "rooms", id)).then((snap) => {
+    if (!snap.exists()) return alert("방 없음");
+
+    roomId = id;
+
+    // 🔥 Realtime DB 접속자 등록
+const userRef = ref(rtdb, `rooms/${roomId}/participants/${userId}`);
+
+set(userRef, {
+  name: userName,
+  joinedAt: Date.now()
+});
+
+// 🔥 창 꺼지면 자동 삭제
+onDisconnect(userRef).remove();
+
+    // 🔥 입장 메시지
+    addDoc(collection(db, "rooms", roomId, "chat"), {
+      type: "system",
+      text: `${userName}님이 입장했습니다`,
+      time: Date.now()
+    });
+
+    initBingoGrid();
+    connectBingo();
+    connectUsers();   // 🔥 추가
+    connectChat();    // 🔥 추가
+
+    document.getElementById("lobby").style.display = "none";
+    document.getElementById("bingoBoard").style.display = "block";
+  });
+}
+
+function connectBingo() {
+  bingoRef = doc(db, "rooms", roomId);
+
+  onSnapshot(bingoRef, (snapshot) => {
+    if (!snapshot.exists()) return;
+
+    const data = snapshot.data();
+    activeCells = data.cells || Array(25).fill(false);
+    chicken = data.chicken || 0;
+
+    document.getElementById('chicken').innerText = chicken;
+
+    document.querySelectorAll('.cell').forEach((cell, i) => {
+      if (activeCells[i]) cell.classList.add('active');
+      else cell.classList.remove('active');
+    });
+
+    document.getElementById('remaining').innerText =
+      25 - activeCells.filter(v => v).length;
+
+    checkBingo();
+  });
+}
+function connectUsers() {
+  const usersRef = ref(rtdb, `rooms/${roomId}/participants`);
+
+  onValue(usersRef, (snapshot) => {
+    const list = document.getElementById("userList");
+    list.innerHTML = "";
+
+    if (!snapshot.exists()) return;
+
+    const data = snapshot.val();
+
+    Object.values(data).forEach(user => {
+      const div = document.createElement("div");
+      div.innerText = "• " + user.name;
+      list.appendChild(div);
+    });
+  });
+}
+window.sendChat = async () => {
+  const input = document.getElementById("chatInput");
+  const text = input.value.trim();
+  if (!text) return;
+
+  await addDoc(collection(db, "rooms", roomId, "chat"), {
+    name: userName,
+    text: text,
+    color: userColor,
+    time: Date.now()
+  });
+
+  input.value = "";
+
+  await cleanupChat();
+};
+
+async function cleanupChat() {
+  const ref = collection(db, "rooms", roomId, "chat");
+  const q = query(ref, orderBy("time"));
+
+  const snapshot = await getDocs(q);
+
+  if (snapshot.size <= 50) return;
+
+  const removeCount = snapshot.size - 50;
+
+  for (let i = 0; i < removeCount; i++) {
+    await deleteDoc(snapshot.docs[i].ref);
+  }
+}
+function connectChat() {
+  const ref = collection(db, "rooms", roomId, "chat");
+  const q = query(ref, orderBy("time"));
+
+  onSnapshot(q, (snapshot) => {
+    const box = document.getElementById("chatBox");
+    box.innerHTML = "";
+
+    const recent = snapshot.docs.slice(-20);
+
+    recent.forEach(doc => {
+      const d = doc.data();
+      const div = document.createElement("div");
+
+      if (d.type === "system") {
+        div.innerHTML = `
+          <div style="text-align:center; color:#999; font-size:12px;">
+            ${d.text}
+          </div>
+        `;
+      } else {
+        div.innerHTML = `
+          <span style="color:${d.color}; font-weight:bold;">
+            ${d.name}
+          </span>: ${d.text}
+        `;
+      }
+
+      box.appendChild(div);
+    });
+
+    box.scrollTop = box.scrollHeight;
+  });
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && document.activeElement.id === "chatInput") {
+    e.preventDefault();
+    sendChat();
+  }
+
+});
+
+window.addEventListener("beforeunload", async () => {
+  if (roomId && userId) {
+    try {
+      await addDoc(collection(db, "rooms", roomId, "chat"), {
+        type: "system",
+        text: `${userName}님이 퇴장했습니다`,
+        time: Date.now()
+      });
+
+      const userRef = ref(rtdb, `rooms/${roomId}/participants/${userId}`);
+await remove(userRef);
+    } catch (e) {}
+  }
+});
+
+window.goBackLobby = async () => {
+  if (!roomId) return;
+
+  if (userId) {
+    try {
+      await addDoc(collection(db, "rooms", roomId, "chat"), {
+        type: "system",
+        text: `${userName}님이 퇴장했습니다`,
+        time: Date.now()
+      });
+
+      await deleteDoc(doc(db, "rooms", roomId, "participants", userId));
+    } catch (e) {
+      console.log("퇴장 오류", e);
+    }
+  }
+
+  roomId = null;
+  userId = null;
+  userName = null;
+
+  document.getElementById("lobby").style.display = "block";
+  document.getElementById("bingoBoard").style.display = "none";
+
+  resetBingo();
+};
+</script>
+<div style="margin-top:40px; font-size:12px; color:#888;">
+  made by 고현수.
+</div>
+</body>
+</html>
