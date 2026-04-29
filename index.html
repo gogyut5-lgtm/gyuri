@@ -615,7 +615,7 @@ if (player.y > canvas.height) player.y = canvas.height;
 e.y += dy/dist * e.speed * delta;
 
 
-    if(dist<25){
+    if(dist<20){
       gameOver=true;
       
 const score = ((Date.now() - startTime - pausedTime) / 1000).toFixed(2);
@@ -631,7 +631,7 @@ function draw(){
 ctx.fillRect(0, 0, 600, 400);
 
   // 플레이어
-  ctx.drawImage(playerImg, player.x - 32, player.y - 32, 64, 64);
+  ctx.drawImage(playerImg, player.x - 20, player.y - 20, 40, 40);
 
   // 적
   enemies.forEach(e=>{
