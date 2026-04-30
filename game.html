@@ -135,8 +135,8 @@ canvas {
   display: flex; /* 히든모드일 때만 보임 */
 }
 #countdown{
-  position:fixed;   /* ⭐ absolute → fixed로 바꿔야 안정적 */
-  transform:translate(-50%, -50%);
+  position:absolute;   /* fixed → absolute로 변경 */
+  transform:translate(-50%, -100%);
 }
 </style>
 </head>
@@ -151,7 +151,6 @@ canvas {
   <div id="rankingBox">로딩중...</div>
   <div id="gameArea">
 <div id="countdown" style="
-  position:absolute;
   font-size:30px;
   font-weight:bold;
   color:white;
@@ -377,6 +376,7 @@ function update(delta){
     let dx=player.x-e.x;
     let dy=player.y-e.y;
     let dist=Math.hypot(dx,dy);
+    if (dist === 0) dist = 0.01;
 
     e.x += dx/dist * e.speed * delta;
     e.y += dy/dist * e.speed * delta;
@@ -454,13 +454,11 @@ function updateCountdown(){
     el.style.display = "block";
     el.innerText = Math.ceil(remain / 1000);
 
-    // ⭐ 핵심 수정
     const rect = canvas.getBoundingClientRect();
 
-    el.style.left = (rect.left + player.x - 10) + "px";
-    el.style.top  = (rect.top + player.y - 80) + "px";
-  } 
-  else {
+el.style.left = player.x + "px";
+el.style.top  = player.y - 40 + "px";
+  } else {
     el.style.display = "none";
   }
 }
@@ -474,10 +472,10 @@ function loop(time){
   update(delta);
   draw();
   updateSkillUI();
+  updateCountdown();
 
   requestAnimationFrame(loop);
 }
- updateCountdown();
 
 function spawnSmokeEffect(x, y){
 
@@ -663,7 +661,6 @@ window.saveScoreToServer = async (score) => {
   }
 
   if (!isTop10) {
-    alert("TOP10 밖이라 저장 안됨");
     return;
   }
 
