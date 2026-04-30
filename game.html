@@ -262,7 +262,7 @@ function updateSkillUI(){
 
   // 🔥 쿨타임
   if (titanCooldown){
-    const total = 60000;
+    const total = 45000;
     const remain = Math.max(0, total - (Date.now() - titanCooldownTime));
 
     cd.style.width = (remain / total) * 100 + "%";
@@ -362,10 +362,10 @@ setInterval(()=>{
 function update(delta){
   if(gameOver) return;
 
- if(keys["arrowup"]) player.y -= player.speed * delta;
- if(keys["arrowdown"]) player.y += player.speed * delta;
- if(keys["arrowleft"]) player.x -= player.speed * delta;
- if(keys["arrowright"]) player.x += player.speed * delta;
+ if(keys["arrowup"] || keys["w"]) player.y -= player.speed * delta;
+if(keys["arrowdown"] || keys["s"]) player.y += player.speed * delta;
+if(keys["arrowleft"] || keys["a"]) player.x -= player.speed * delta;
+if(keys["arrowright"] || keys["d"]) player.x += player.speed * delta;
 
   if (player.x < 0) player.x = 0;
   if (player.y < 0) player.y = 0;
@@ -616,10 +616,10 @@ function activateTitanMode(){
     titanMode = false;
   }, 5000);
 
-  // 60초 쿨타임
+  // 45초 쿨타임
   setTimeout(() => {
     titanCooldown = false;
-  }, 60000);
+  }, 45000);
 
 }</script>
 
