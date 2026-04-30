@@ -134,6 +134,10 @@ canvas {
 #skillBar.show {
   display: flex; /* 히든모드일 때만 보임 */
 }
+#countdown{
+  position:fixed;   /* ⭐ absolute → fixed로 바꿔야 안정적 */
+  transform:translate(-50%, -50%);
+}
 </style>
 </head>
 
@@ -146,6 +150,15 @@ canvas {
 <div id="wrap">
   <div id="rankingBox">로딩중...</div>
   <div id="gameArea">
+<div id="countdown" style="
+  position:absolute;
+  font-size:30px;
+  font-weight:bold;
+  color:white;
+  text-shadow:0 0 10px black;
+  display:none;
+  pointer-events:none;
+"></div>
 
     <div id="skillBar">
       <div class="skillCard">
@@ -250,7 +263,7 @@ function updateSkillUI(){
 
   // 🔥 쿨타임
   if (titanCooldown){
-    const total = 45000;
+    const total = 60000;
     const remain = Math.max(0, total - (Date.now() - titanCooldownTime));
 
     cd.style.width = (remain / total) * 100 + "%";
@@ -264,7 +277,7 @@ function updateSkillUI(){
 
   // 🔥 지속시간
   if (titanMode){
-    const total = 8000;
+    const total = 5000;
     const remain = Math.max(0, total - (Date.now() - titanDurationTime));
 
     dur.style.width = (remain / total) * 100 + "%";
@@ -333,7 +346,19 @@ function spawnEnemy(){
   });
 }
 
-setInterval(()=>{ if(!gameOver) spawnEnemy(); },1000);
+setInterval(()=>{
+  if(gameOver) return;
+
+  const time = (Date.now() - startTime - pausedTime) / 1000;
+
+  // 🔥 n초마다 +1씩 증가
+  const count = 1 + Math.floor(time / 15);
+
+  for (let i = 0; i < count; i++) {
+    spawnEnemy();
+  }
+
+},1000);
 
 function update(delta){
   if(gameOver) return;
@@ -414,7 +439,31 @@ ctx.drawImage(
       "Time: "+((Date.now() - startTime - pausedTime)/1000).toFixed(1);
   }
 }
+function updateCountdown(){
+  const el = document.getElementById("countdown");
 
+  if (!titanMode) {
+    el.style.display = "none";
+    return;
+  }
+
+  const total = 5000;
+  const remain = total - (Date.now() - titanDurationTime);
+
+  if (remain <= 3000 && remain > 0) {
+    el.style.display = "block";
+    el.innerText = Math.ceil(remain / 1000);
+
+    // ⭐ 핵심 수정
+    const rect = canvas.getBoundingClientRect();
+
+    el.style.left = (rect.left + player.x - 10) + "px";
+    el.style.top  = (rect.top + player.y - 80) + "px";
+  } 
+  else {
+    el.style.display = "none";
+  }
+}
 
 function loop(time){
   if(gameOver) return;
@@ -428,6 +477,7 @@ function loop(time){
 
   requestAnimationFrame(loop);
 }
+ updateCountdown();
 
 function spawnSmokeEffect(x, y){
 
