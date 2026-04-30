@@ -227,7 +227,7 @@ color:transparent;">
 <button onclick="showSection('funding')">펀딩 계산기</button>
 <button onclick="showSection('queue')">선입 계산기</button>
 <button onclick="showSection('bingo')">빙고</button>
-<button onclick="showSection('gyuriGame')">🎮 진격의 규리</button>
+<button onclick="location.href='game.html'">🎮 진격의 규리</button>
 </div>
 <!-- 펀딩 -->
 <div class="section active-section" id="funding">
@@ -246,19 +246,7 @@ color:transparent;">
 <div id="queueContainer"></div>
 <div id="resultBox">정산 결과가 여기에 표시됩니다</div></div>
 </div>
-<div class="section" id="gyuriGame">
-<h2>🎮 진격의 규리</h2>
-<button onclick="startGame()">▶ 게임 시작</button>
-<div style="display:flex; gap:20px; align-items:flex-start; justify-content:center;">
-<!-- 랭킹 -->
-<div>
-<div id="rankingBox" style="white-space:pre-line; width:200px;"></div>
-</div>
-<!-- 게임 -->
-<div>
-<canvas height="400" id="gameCanvas" width="600"></canvas>
-<div id="ui">Time: 0</div>
-</div>
+
 </div>
 </div>
 <!-- 빙고 -->
@@ -521,156 +509,6 @@ saveBingo();
 };
 chickenSpan.onmouseup = () => clearTimeout(timer);
 
-// ===== 진격의 규리 =====
-const playerImg = new Image();
-playerImg.src = "player.png";
-
-const enemyImg = new Image();
-enemyImg.src = "enemy.png";
-
-let canvas = document.getElementById("gameCanvas");
-let ctx = canvas.getContext("2d");
-
-let player, enemies, startTime, gameOver;
-let pausedTime = 0;
-let hiddenStart = 0;
-let isPaused = false;
-let keys = {};
-
-document.addEventListener("keydown", e => keys[e.key]=true);
-document.addEventListener("keyup", e => keys[e.key]=false);
-function pauseGameTime() {
-  if (!isPaused) {
-    isPaused = true;
-    hiddenStart = Date.now();
-  }
-}
-
-function resumeGameTime() {
-  if (isPaused) {
-    isPaused = false;
-    pausedTime += Date.now() - hiddenStart;
-  }
-}
-
-// 탭 숨김
-document.addEventListener("visibilitychange", () => {
-  if (document.hidden) pauseGameTime();
-  else resumeGameTime();
-});
-
-// 알탭 / 다른 창 클릭
-window.addEventListener("blur", pauseGameTime);
-
-// 다시 돌아옴
-window.addEventListener("focus", resumeGameTime);
-
-function startGame(){
-keys = {}; // 🔥 이 줄 추가
-  player = {x:300,y:200,r:10,speed:4};
-  enemies = [];
-  startTime = Date.now();
-  gameOver = false;
-  lastTime = 0;
- // 🔥 추가 (중요)
-  pausedTime = 0;
-  isPaused = false;
-  requestAnimationFrame(loop);
-}
-
-function spawnEnemy(){
-  const time = (Date.now() - startTime - pausedTime) / 1000;
-
-  const baseSpeed = 0.8 + Math.random()*1.0;
-  const speed = Math.min(baseSpeed + time * 0.1, 3.5);
-
-  enemies.push({
-    x:Math.random()*600,
-    y:0,
-    speed: speed
-  });
-}
-
-setInterval(()=>{ if(!gameOver) spawnEnemy(); },1000);
-
-function update(delta){
-  if(gameOver) return;
-
-  if(keys["w"]) player.y-=player.speed * delta;
-if(keys["s"]) player.y+=player.speed * delta;
-if(keys["a"]) player.x-=player.speed * delta;
-if(keys["d"]) player.x+=player.speed * delta;
-// 🔥 화면 밖 못 나가게 제한
-if (player.x < 0) player.x = 0;
-if (player.y < 0) player.y = 0;
-
-if (player.x > canvas.width) player.x = canvas.width;
-if (player.y > canvas.height) player.y = canvas.height;
-  enemies.forEach(e=>{
-    let dx=player.x-e.x;
-    let dy=player.y-e.y;
-    let dist=Math.hypot(dx,dy);
-
-  e.x += dx/dist * e.speed * delta;
-e.y += dy/dist * e.speed * delta;
-
-
-    if(dist<20){
-      gameOver=true;
-      
-const score = ((Date.now() - startTime - pausedTime) / 1000).toFixed(2);
-saveScoreToServer(null, score);
-alert("생존: "+score+"초");
-
-    }
-  });
-}
-
-function draw(){
-  ctx.fillStyle = "#C2B280";
-ctx.fillRect(0, 0, 600, 400);
-
-  // 플레이어
-  ctx.drawImage(playerImg, player.x - 20, player.y - 20, 40, 40);
-
-  // 적
-  enemies.forEach(e=>{
-    ctx.drawImage(enemyImg, e.x - 20, e.y - 20, 40, 40);
-  });
-
-  if(!gameOver){
-    document.getElementById("ui").innerText =
-      "Time: "+((Date.now() - startTime - pausedTime)/1000).toFixed(1);
-  }
-}
-
-
-let lastTime = 0;
-
-function loop(time){
-  if(gameOver) return;
-
-  const delta = (time - lastTime) / 16.67;
-  lastTime = time;
-
-  update(delta);
-  draw();
-
-  requestAnimationFrame(loop);
-}
-
-
-// ===== 랭킹 =====
-let rankingVisible = true;
-window.addEventListener('load', ()=>{ loadRanking(); });
-
-function toggleRanking(){
-  rankingVisible = !rankingVisible;
-  if(rankingVisible) loadRanking();
-  
-}
-
-
 </script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -711,52 +549,6 @@ import {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const rtdb = getDatabase(app);
-
-// 랭킹 컬렉션
-const rankingRef = collection(db, "ranking");
-
-window.saveScoreToServer = async (name, score) => {
-  const q = query(rankingRef, orderBy("score","desc"), limit(10));
-  const snapshot = await getDocs(q);
-
-  let isTop10 = false;
-
-  if (snapshot.size < 10) {
-    isTop10 = true;
-  } else {
-    const last = snapshot.docs[snapshot.docs.length - 1].data().score;
-    if (Number(score) > last) isTop10 = true;
-  }
-
-  if (!isTop10) {
-    alert("TOP10 밖이라 저장 안됨");
-    return;
-  }
-
-  // 👉 여기서만 이름 입력
-  const finalName = prompt("TOP10 진입! 이름 입력") || "익명";
-
-  await addDoc(rankingRef, {
-    name: finalName,
-    score: Number(score),
-    time: Date.now()
-  });
-
-  alert("🏆 랭킹 등록 완료!");
-};
-window.loadRanking = () => {
-  const q = query(rankingRef, orderBy("score","desc"), limit(10));
-  onSnapshot(q, (snapshot)=>{
-    let text = "🏆 TOP 10\n\n";
-    let i=1;
-    snapshot.forEach(doc=>{
-      const d = doc.data();
-      text += `${i}. ${d.name} - ${d.score}초\n`;
-      i++;
-    });
-    document.getElementById("rankingBox").innerText = text;
-  });
-};
 
 // 🔥 문서 참조
 // removed old bingoRef
