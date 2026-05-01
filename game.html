@@ -839,6 +839,7 @@ function activateLeviMode(){
   inputBuffer = "";
   gameOver = true;
 
+  // 🔥 overlay 생성 (필수)
   const overlay = document.createElement("div");
   overlay.style.position = "fixed";
   overlay.style.top = "0";
@@ -851,25 +852,55 @@ function activateLeviMode(){
   overlay.style.alignItems = "center";
   overlay.style.zIndex = "9999";
 
+  // 🔥 컨테이너
+  const container = document.createElement("div");
+  container.style.display = "flex";
+  container.style.flexDirection = "column";
+  container.style.alignItems = "center";
+  container.style.gap = "20px";
+
+  // 🔥 이미지
+  const img = document.createElement("img");
+  img.src = "levi.gif"; // GIF도 가능
+  img.style.width = "400px";
+  img.style.imageRendering = "pixelated";
+  // ⭐ 위치 고정 (핵심)
+img.style.position = "fixed";
+img.style.left = "50%";
+img.style.top = "25%";
+img.style.transform = "translate(-50%, -50%)";
+img.style.zIndex = "10000";
+
+  // 🔥 텍스트
   const text = document.createElement("div");
   text.innerText = "俺たちが戦う理由はただ一つ。\n生き残るためだ。\n\n우리가 싸우는 이유는 단 하나다.\n살아남기 위해서다.";
   text.style.color = "white";
-  text.style.fontSize = "28px";
-  text.style.textAlign = "center";
+  text.style.fontSize = "24px";
+  text.style.textAlign
+  text.style.whiteSpace = "pre-line";
+  text.style.position = "fixed";
+text.style.top = "75%";
+text.style.left = "50%";
+text.style.transform = "translate(-50%, -50%)";
+text.style.zIndex = "10001"; // ⭐ 이게 핵
+  // 조립
+  container.appendChild(img);
+  container.appendChild(text);
+  overlay.appendChild(container);
+  document.body.appendChild(overlay); // ⭐ 이거 필수
 
-  overlay.appendChild(text);
-  document.body.appendChild(overlay);
-
+  // 연출
   setTimeout(() => {
     text.innerText = "⚔️ 리바이 모드";
+    img.style.transform = "translate(-50%, -50%) scale(1.2)";
+    img.style.transition = "0.3s";
 
     setTimeout(() => {
-
       overlay.remove();
-document.getElementById("leviUI").classList.add("show");
-document.getElementById("erenUI").classList.remove("show");
 
-      // 🔥 캐릭터 변경
+      document.getElementById("leviUI").classList.add("show");
+      document.getElementById("erenUI").classList.remove("show");
+
       playerImg.src = leviImg.src;
 
       leviMode = true;
@@ -882,7 +913,6 @@ document.getElementById("erenUI").classList.remove("show");
 
   }, 2000);
 }
-let leviCooldown = false;
 
 function activateLeviSkill(){
 
