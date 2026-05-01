@@ -193,6 +193,8 @@ titanImg.src = "titan.png";
 
 const enemyImg = new Image();
 enemyImg.src = "enemy.png";
+const bossImg = new Image();
+bossImg.src = "boss.png";
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -216,6 +218,8 @@ let lightningX = 0;
 let lightningY = 0;
 let titanCooldownTime = 0;
 let titanDurationTime = 0;
+let lastBossTime = 0;
+
 
 // 🔥 키 입력 처리 (정석)
 document.addEventListener("keydown", e => {
@@ -326,7 +330,7 @@ function startGame(){
   isPaused = false;
   hiddenMode = false;
   inputBuffer = "";
- 
+
   titanCooldown = false;
  
   lightningActive = false;
@@ -335,13 +339,22 @@ function startGame(){
 
 function spawnEnemy(){
   const time = (Date.now() - startTime - pausedTime) / 1000;
-  const baseSpeed = 0.8 + Math.random()*1.0;
-  const speed = Math.min(baseSpeed + time * 0.1, 3.5);
 
+  const baseSpeed = 0.8 + Math.random()*1.0;
+  let speed = Math.min(baseSpeed + time * 0.1, 3.5);
+
+  let type = "normal";
+
+ 
   enemies.push({
-    x:Math.random()*600,
-    y:0,
-    speed: speed
+    x: Math.random()*600,
+    y: 0,
+    speed: speed,
+    type: type,
+  dashState: "idle", // idle → warn → dash
+  dashTimer: 0,
+  dashTargetX: 0,
+  dashTargetY: 0
   });
 }
 
@@ -350,96 +363,141 @@ setInterval(()=>{
 
   const time = (Date.now() - startTime - pausedTime) / 1000;
 
-  // 🔥 n초마다 +1씩 증가
+  // 일반 적
   const count = 1 + Math.floor(time / 15);
-
   for (let i = 0; i < count; i++) {
     spawnEnemy();
   }
 
+  // 🔥 30초마다 보스 등장
+if (time - lastBossTime >= 30) {
+  spawnBoss();
+  lastBossTime = time;
+}
 },1000);
+
+function spawnBoss(){
+  enemies.push({
+    x: Math.random()*600,
+    y: 0,
+    speed: 1.2,
+    type: "boss",
+    dashState: "idle",
+    dashTimer: 60,
+    dashTargetX: 0,
+    dashTargetY: 0
+  });
+}
 
 function update(delta){
   if(gameOver) return;
 
- if(keys["arrowup"] || keys["w"]) player.y -= player.speed * delta;
-if(keys["arrowdown"] || keys["s"]) player.y += player.speed * delta;
-if(keys["arrowleft"] || keys["a"]) player.x -= player.speed * delta;
-if(keys["arrowright"] || keys["d"]) player.x += player.speed * delta;
+  // 플레이어 이동
+  if(keys["arrowup"] || keys["w"]) player.y -= player.speed * delta;
+  if(keys["arrowdown"] || keys["s"]) player.y += player.speed * delta;
+  if(keys["arrowleft"] || keys["a"]) player.x -= player.speed * delta;
+  if(keys["arrowright"] || keys["d"]) player.x += player.speed * delta;
 
+  // 맵 밖 제한
   if (player.x < 0) player.x = 0;
   if (player.y < 0) player.y = 0;
   if (player.x > canvas.width) player.x = canvas.width;
   if (player.y > canvas.height) player.y = canvas.height;
 
-  enemies.forEach(e=>{
-    let dx=player.x-e.x;
-    let dy=player.y-e.y;
-    let dist=Math.hypot(dx,dy);
+  enemies.forEach(e => {
+
+    let dx = player.x - e.x;
+    let dy = player.y - e.y;
+    let dist = Math.hypot(dx, dy);
     if (dist === 0) dist = 0.01;
 
-    e.x += dx/dist * e.speed * delta;
-    e.y += dy/dist * e.speed * delta;
+    // 🔥 보스 패턴
+    if (e.type === "boss") {
 
-const hitRange = (erenMode && titanMode)
-  ? 40 * 2.5 / 2   // 타이탄 크기 반영
-  : 20;
+      if (e.dashState === "idle") {
 
-if (dist < hitRange) {
+        e.dashTimer -= delta;
 
-  // 🔥 타이탄이면 적 삭제
+        if (e.dashTimer <= 0) {
+          e.dashState = "warn";
+          e.dashTimer = 180;
+          e.dashTargetX = player.x;
+          e.dashTargetY = player.y;
+        }
+
+        // 평소엔 추적
+        e.x += dx/dist * e.speed * delta;
+        e.y += dy/dist * e.speed * delta;
+      }
+
+      else if (e.dashState === "warn") {
+
+        e.dashTimer -= delta;
+
+        // 멈춤 (긴장감)
+        if (e.dashTimer <= 0) {
+          e.dashState = "dash";
+        }
+      }
+
+      else if (e.dashState === "dash") {
+
+        let dx2 = e.dashTargetX - e.x;
+        let dy2 = e.dashTargetY - e.y;
+        let dist2 = Math.hypot(dx2, dy2);
+
+        if (dist2 < 5) {
+          e.dashState = "idle";
+          e.dashTimer = 120;
+        } else {
+          e.x += dx2/dist2 * 12 * delta;
+          e.y += dy2/dist2 * 12 * delta;
+        }
+      }
+
+    } else {
+      // 일반 적
+      e.x += dx/dist * e.speed * delta;
+      e.y += dy/dist * e.speed * delta;
+    }
+
+    // 🔥 충돌 처리
+    let hitRange = 20;
+
+    if (e.type === "boss") hitRange = 40;
+    if (erenMode && titanMode) hitRange = (40 * 2.5) / 2;
+
+    	if (dist < hitRange) {
+
   if (erenMode && titanMode) {
-    spawnSmokeEffect(e.x, e.y); // 연기 효과
+    spawnSmokeEffect(e.x, e.y);
     enemies = enemies.filter(en => en !== e);
     return;
   }
 
-  // 🔥 일반 상태면 게임오버
+  if (gameOver) return; // ⭐ 이미 죽었으면 무시
+
   gameOver = true;
 
   const score = ((Date.now() - startTime - pausedTime) / 1000).toFixed(2);
+
   saveScoreToServer(score);
-  alert("생존: " + score + "초");
-}
-});
 
-} 
-function draw(){
-  ctx.fillStyle = "#C2B280";
-  ctx.fillRect(0, 0, 600, 400);
+  setTimeout(() => {
+    alert("생존: " + score + "초");
+  }, 0);
 
-if (lightningActive) {
-  drawLightning(lightningX, lightningY);
+  return; // ⭐ 여기 추가 (이게 핵심)
 }
 
-let size = 40;
-
-// 🔥 타이탄 + 에렌일 때만 2.5배
-if (erenMode && titanMode) {
-  size = 40 * 2.5;
-}
-// 🔥 에렌만이면 1.5배 (선택)
-else if (erenMode) {
-  size = 40 ;
-}
-ctx.drawImage(
-  playerImg,
-  player.x - size / 2,
-  player.y - size / 2,
-  size,
-  size
-);
-
-  enemies.forEach(e=>{
-    ctx.drawImage(enemyImg, e.x - 20, e.y - 20, 40, 40);
   });
 
+  // UI 업데이트
   if(!gameOver){
     document.getElementById("ui").innerText =
       "Time: "+((Date.now() - startTime - pausedTime)/1000).toFixed(1);
   }
-}
-function updateCountdown(){
+}function updateCountdown(){
   const el = document.getElementById("countdown");
 
   if (!titanMode) {
@@ -524,6 +582,68 @@ function drawLightning(x, y){
 
     ctx.stroke();
   }
+}
+
+function draw(){
+  ctx.fillStyle = "#C2B280";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // 번개
+  if (lightningActive) {
+    drawLightning(lightningX, lightningY);
+  }
+
+  // 플레이어
+  let size = 40;
+
+  if (erenMode && titanMode) {
+    size = 40 * 2.5;
+  } else if (erenMode) {
+    size = 40;
+  }
+
+  ctx.drawImage(
+    playerImg,
+    player.x - size/2,
+    player.y - size/2,
+    size,
+    size
+  );
+
+  // 적
+  enemies.forEach(e => {
+
+    const img = e.type === "boss" ? bossImg : enemyImg;
+    const size = e.type === "boss" ? 100 : 40;
+
+    ctx.drawImage(
+      img,
+      e.x - size/2,
+      e.y - size/2,
+      size,
+      size
+    );
+
+    // 보스 경고 표시
+    if (e.type === "boss" && e.dashState === "warn") {
+
+      ctx.strokeStyle = "red";
+      ctx.lineWidth = 2;
+
+      ctx.beginPath();
+      ctx.arc(e.dashTargetX, e.dashTargetY, 20, 0, Math.PI * 2);
+      ctx.stroke();
+
+      const seconds = Math.ceil(e.dashTimer / 60);
+
+      ctx.fillStyle = "white";
+      ctx.font = "20px Arial";
+      ctx.textAlign = "center";
+
+      ctx.fillText(seconds, e.x, e.y - 40);
+    }
+
+  });
 }
 
 function activateHiddenMode(){
