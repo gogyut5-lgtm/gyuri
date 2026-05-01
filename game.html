@@ -226,6 +226,9 @@ let titanCooldownTime = 0;
 let titanDurationTime = 0;
 let lastBossPhase = -1;
 let leviCooldownStart = 0;
+let leviDurationStart = 0;
+let leviSkillActive = false;
+let invincible = false;
 
 
 // 🔥 키 입력 처리 (정석)
@@ -522,14 +525,20 @@ function update(delta){
 
     	if (dist < hitRange) {
 
+  // 🔥 리바이 무적
+  if (invincible) return;
+
+  // 🔥 에렌 거인 상태 → 적 제거
   if (erenMode && titanMode) {
     spawnSmokeEffect(e.x, e.y);
     enemies = enemies.filter(en => en !== e);
     return;
   }
 
-  if (gameOver) return; // ⭐ 이미 죽었으면 무시
+  // 🔥 이미 죽었으면 무시
+  if (gameOver) return;
 
+  // 🔥 게임오버
   gameOver = true;
 
   const score = ((Date.now() - startTime - pausedTime) / 1000).toFixed(2);
@@ -540,7 +549,7 @@ function update(delta){
     alert("생존: " + score + "초");
   }, 0);
 
-  return; // ⭐ 여기 추가 (이게 핵심)
+  return;
 }
 
   });
@@ -554,29 +563,58 @@ function update(delta){
 function updateCountdown(){
   const el = document.getElementById("countdown");
 
-  if (!titanMode) {
+  // 🔥 에렌
+  if (titanMode) {
+    const total = 5000;
+    const remain = total - (Date.now() - titanDurationTime);
+
+    if (remain <= 3000 && remain > 0) {
+      el.style.display = "block";
+      el.innerText = Math.ceil(remain / 1000);
+    } else {
+      el.style.display = "none";
+      return;
+    }
+  }
+
+  // 🔥 리바이
+  else if (leviSkillActive) {
+    const total = 3000;
+    const remain = total - (Date.now() - leviDurationStart);
+
+    if (remain > 0) {
+      el.style.display = "block";
+      el.innerText = Math.ceil(remain / 1000);
+    } else {
+      el.style.display = "none";
+      return;
+    }
+  }
+
+  else {
     el.style.display = "none";
     return;
   }
 
-  const total = 5000;
-  const remain = total - (Date.now() - titanDurationTime);
+  // ⭐ 공통 위치 계산
+const rect = canvas.getBoundingClientRect();
 
-  if (remain <= 3000 && remain > 0) {
-    el.style.display = "block";
-    el.innerText = Math.ceil(remain / 1000);
-
-    const rect = canvas.getBoundingClientRect();
-
-    el.style.left = rect.left + player.x + "px";
-    el.style.top  = rect.top + player.y - 60 + "px";
-
-    el.style.transform = "translate(-50%, -50%)"; // ⭐ 가운데 정렬
-  } else {
-    el.style.display = "none";
-  }
+// 🔥 리바이 전용 위치 + 크기
+if (leviSkillActive) {
+  el.style.left = rect.left + player.x + "px";
+  el.style.top  = rect.top + player.y - 40 + "px"; // 더 아래
+  el.style.fontSize = "18px"; // 작게
 }
 
+// 🔥 에렌은 기존 유지
+else {
+  el.style.left = rect.left + player.x + "px";
+  el.style.top  = rect.top + player.y - 60 + "px";
+  el.style.fontSize = "30px";
+}
+
+el.style.transform = "translate(-50%, -50%)";
+}
 function loop(time){
   if(gameOver) return;
 
@@ -766,7 +804,7 @@ function activateHiddenMode(){
     setTimeout(() => {
 
       overlay.remove();
-overlay.remove();
+
 
 // 🔥 UI 스위칭 (여기!)
 document.getElementById("erenUI").classList.add("show");
@@ -885,17 +923,25 @@ let leviCooldown = false;
 function activateLeviSkill(){
 
   if (leviCooldown) return;
+
   leviCooldown = true;
-leviCooldownStart = Date.now();
+  leviCooldownStart = Date.now();
+  invincible = true; // 무적 시작
+leviDurationStart = Date.now();
+leviSkillActive = true;
 
-  // 🔥 이펙트 생성
-  spawnLeviSlash(player.x, player.y);
+  const duration = 3000; // 🔥 3초 지속
+  const intervalTime = 100; // 🔥 0.1초마다 베기
 
-  // 🔥 약간 딜레이 주고 타격 (타격감)
-  setTimeout(() => {
+  const start = Date.now();
 
+  const interval = setInterval(() => {
+
+    // 🔥 이펙트 계속 생성
+    spawnLeviSlash(player.x, player.y);
+
+    // 🔥 주변 적 계속 제거
     enemies = enemies.filter(e => {
-
       const dx = player.x - e.x;
       const dy = player.y - e.y;
       const dist = Math.hypot(dx, dy);
@@ -907,14 +953,20 @@ leviCooldownStart = Date.now();
       return true;
     });
 
-  }, 80);
+    // ⏱️ 3초 끝나면 종료
+   if (Date.now() - start >= duration) {
+  clearInterval(interval);
+  invincible = false;
+  leviSkillActive = false; // ⭐ 이거 반드시 여기!
+}
+
+  }, intervalTime);
 
   // 🔥 쿨타임
   setTimeout(() => {
     leviCooldown = false;
   }, 45000);
 }
-
 function spawnLeviSlash(x, y){
 
   slashEffects.push({
@@ -976,7 +1028,6 @@ window.saveScoreToServer = async (score) => {
     score: Number(score),
     time: Date.now()
   });
-
   alert("🏆 랭킹 등록 완료!");
 };
 
