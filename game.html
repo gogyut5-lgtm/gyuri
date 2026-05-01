@@ -45,98 +45,79 @@ canvas {
 }
 #skillBar{
   position:absolute;
-  top:10px;
-  left:10px;
-  display:flex;
-  gap:12px;
+  top:12px;
+  left:12px;
+  display:none;
+  gap:8px;
   z-index:10;
 }
 
-/* 카드 */
+#skillBar.show {
+  display:flex;
+}
+
+.skillSet {
+  display:none;
+}
+
+.skillSet.show {
+  display:block;
+}
+#gameArea {
+  position: relative;
+}
 .skillCard{
-  width:100px;
-  background:rgba(20,20,20,0.85);
-  border:1px solid rgba(255,255,255,0.2);
+  width:110px;              /* 기존 160 → 줄이기 */
+  background:rgba(0,0,0,0.45); /* 더 투명 */
   border-radius:10px;
   padding:6px;
   color:white;
-  position:relative;
-  backdrop-filter: blur(6px);
+  box-shadow:0 3px 8px rgba(0,0,0,0.25);
+  backdrop-filter: blur(4px); /* 🔥 유리 느낌 */
 }
 
-/* 스킬 이름 */
 .skillName{
-  font-size:11px;
-  opacity:0.8;
-}
-
-/* Q 키 표시 */
-.skillKey{
-  position:absolute;
-  right:8px;
-  top:6px;
-  width:22px;
-  height:22px;
-  border-radius:6px;
-  background:white;
-  color:black;
-  font-weight:bold;
   font-size:12px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  margin-bottom:2px;
 }
 
-/* 바 */
-.bar{
-  margin-top:6px;
-  height:10px;
-  background:rgba(255,255,255,0.1);
-  border-radius:6px;
-  overflow:hidden;
-  position:relative;
-}
-
-/* 지속 */
-.fill.duration{
-  position:absolute;
-  height:100%;
-  width:0%;
-  background:linear-gradient(90deg,#00f0ff,#00ff95);
-}
-
-/* 쿨타임 */
-.fill.cooldown{
-  position:absolute;
-  height:100%;
-  width:0%;
-  background:linear-gradient(90deg,#ff3b3b,#ff9900);
-  opacity:0.9;
-}
-
-/* 상태 텍스트 */
-.skillState{
-  margin-top:4px;
+.skillKey{
   font-size:10px;
-  text-align:center;
-  opacity:0.7;
-}
-#gameArea{
-  position:relative;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-}
-#skillBar {
-  display: none; /* 기본 숨김 */
+  opacity:0.6;
+  margin-bottom:4px;
 }
 
-#skillBar.show {
-  display: flex; /* 히든모드일 때만 보임 */
+
+.bar{
+  height:5px;   /* 기존 8 → 줄이기 */
+  margin-bottom:4px;
+ position: relative; /* ⭐ 추가 */
+}
+.fill{
+  height:100%;
+  width:0%;
+  position:absolute;
+  left:0;
+  top:0;
+z-index:0; 
+}
+
+.fill.duration{
+  background:#00ffcc;
+}
+
+.fill.cooldown{
+  background: rgba(255,85,85,0.6);
+}
+
+.skillState{
+  font-size:12px;
+  text-align:right;
+  position: relative;
+  z-index:1; /* ⭐ 추가 */
 }
 #countdown{
-  position:absolute;   /* fixed → absolute로 변경 */
-  transform:translate(-50%, -100%);
+  position: fixed; /* ⭐ 핵심 */
 }
 </style>
 </head>
@@ -159,19 +140,38 @@ canvas {
   pointer-events:none;
 "></div>
 
-    <div id="skillBar">
-      <div class="skillCard">
-  <div class="skillName">Q - 거인화</div>
-  <div class="skillKey">Q</div>
+   <div id="skillBar">
 
-  <div class="bar">
-    <div id="qDurationFill" class="fill duration"></div>
-    <div id="qCooldownFill" class="fill cooldown"></div>
+  <!-- 에렌 -->
+  <div id="erenUI" class="skillSet">
+    <div class="skillCard">
+      <div class="skillName">⚡ Q - 거인화</div>
+    
+
+      <div class="bar">
+        <div id="qDurationFill" class="fill duration"></div>
+        <div id="qCooldownFill" class="fill cooldown"></div>
+      </div>
+
+      <div class="skillState" id="qState">READY</div>
+    </div>
   </div>
 
-  <div class="skillState" id="qState">READY</div>
-</div>
+  <!-- 리바이 -->
+  <div id="leviUI" class="skillSet">
+    <div class="skillCard">
+      <div class="skillName">🌀 Q - 회전베기</div>
+     
+
+      <div class="bar">
+        <div id="leviCooldownFill" class="fill cooldown"></div>
+      </div>
+
+      <div class="skillState" id="leviState">READY</div>
     </div>
+  </div>
+
+</div>
 
     <canvas id="gameCanvas" width="600" height="400"></canvas>
     <div id="ui">Time: 0</div>
@@ -195,6 +195,8 @@ const enemyImg = new Image();
 enemyImg.src = "enemy.png";
 const bossImg = new Image();
 bossImg.src = "boss.png";
+const leviImg = new Image();
+leviImg.src = "levi.png";
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -208,6 +210,10 @@ let keys = {};
 let lastTime = 0;
 let secretEn = "rncnrgownak";
 let secretKr = "구축해주마";
+let secretLeviEn = "dlsfbchlrkd";
+let secretLeviKr = "인류최강";
+let leviMode = false;
+let slashEffects = [];
 let inputBuffer = "";
 let hiddenMode = false;
 let titanMode = false;
@@ -219,25 +225,38 @@ let lightningY = 0;
 let titanCooldownTime = 0;
 let titanDurationTime = 0;
 let lastBossPhase = -1;
+let leviCooldownStart = 0;
+let invincible = false;
 
 
 // 🔥 키 입력 처리 (정석)
 document.addEventListener("keydown", e => {
 
+ console.log("key:", e.key);        // 👈 여기 추가
+  console.log("buffer:", inputBuffer); // 👈 여기 추가
+
+  if (e.key === "Process") return;
+
   keys[e.key.toLowerCase()] = true;
 
-  // 🔥 Q 스킬은 항상 먼저 처리
+  // Q 스킬
  if (e.key.toLowerCase() === "q") {
-  if (!erenMode) return;
-  if (titanCooldown) return;
 
-  activateTitanMode();
+  // 🔥 에렌
+  if (erenMode) {
+    if (titanCooldown) return;
+    activateTitanMode();
+  }
+
+  // 🔥 리바이
+  else if (leviMode) {
+    activateLeviSkill();
+  }
+
   return;
 }
 
-  // 🔥 히든모드일 때는 입력만 막고 Q는 유지
-  if (hiddenMode) return;
-
+  // 문자 입력
   if (e.key.length === 1) {
     inputBuffer += e.key.toLowerCase();
   }
@@ -246,17 +265,27 @@ document.addEventListener("keydown", e => {
     inputBuffer = inputBuffer.slice(-20);
   }
 
-  if (
-    inputBuffer.includes(secretEn) ||
-    inputBuffer.includes(secretKr)
-  ) {
-    activateHiddenMode();
-  }
+  // 에렌
+ // 🔥 리바이 먼저 검사 (중요)
+if (
+  inputBuffer.includes(secretLeviEn) ||
+  inputBuffer.includes(secretLeviKr)
+) {
+  activateLeviMode();
+}
+else if (
+  inputBuffer.includes(secretEn) ||
+  inputBuffer.includes(secretKr)
+) {
+  activateHiddenMode();
+}
 });
 
+// 🔥 이거 반드시 있어야함
 document.addEventListener("keyup", e => {
   keys[e.key.toLowerCase()] = false;
 });
+
 
 function updateSkillUI(){
 
@@ -296,6 +325,28 @@ function updateSkillUI(){
       state.style.color = "#ffffff";
     }
   }
+// 🔥 리바이 UI
+const leviFill = document.getElementById("leviCooldownFill");
+const leviState = document.getElementById("leviState");
+
+if (leviMode) {
+
+  if (leviCooldown) {
+    const total = 45000;
+    const remain = Math.max(0, total - (Date.now() - leviCooldownStart));
+
+    leviFill.style.width = (remain / total) * 100 + "%";
+
+    leviState.innerText = "쿨타임";
+    leviState.style.color = "#ff5555";
+  } else {
+    leviFill.style.width = "0%";
+
+    leviState.innerText = "READY";
+    leviState.style.color = "#ffffff";
+  }
+
+}
 }
 function pauseGameTime() {
   if (!isPaused) {
@@ -328,12 +379,13 @@ function startGame(){
   lastTime = 0;
   pausedTime = 0;
   isPaused = false;
-  hiddenMode = false;
   inputBuffer = "";
 
   titanCooldown = false;
   lastBossPhase = 0;
   lightningActive = false;
+leviCooldown = false;
+  leviCooldownStart = 0;
   requestAnimationFrame(loop);
 }
 
@@ -470,6 +522,7 @@ function update(delta){
     if (erenMode && titanMode) hitRange = (40 * 2.5) / 2;
 
     	if (dist < hitRange) {
+if (invincible) return;
 
   if (erenMode && titanMode) {
     spawnSmokeEffect(e.x, e.y);
@@ -499,7 +552,8 @@ function update(delta){
     document.getElementById("ui").innerText =
       "Time: "+((Date.now() - startTime - pausedTime)/1000).toFixed(1);
   }
-}function updateCountdown(){
+}
+function updateCountdown(){
   const el = document.getElementById("countdown");
 
   if (!titanMode) {
@@ -516,8 +570,10 @@ function update(delta){
 
     const rect = canvas.getBoundingClientRect();
 
-el.style.left = player.x + "px";
-el.style.top  = player.y - 40 + "px";
+    el.style.left = rect.left + player.x + "px";
+    el.style.top  = rect.top + player.y - 60 + "px";
+
+    el.style.transform = "translate(-50%, -50%)"; // ⭐ 가운데 정렬
   } else {
     el.style.display = "none";
   }
@@ -586,6 +642,7 @@ function drawLightning(x, y){
   }
 }
 
+
 function draw(){
   ctx.fillStyle = "#C2B280";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -600,8 +657,6 @@ function draw(){
 
   if (erenMode && titanMode) {
     size = 40 * 2.5;
-  } else if (erenMode) {
-    size = 40;
   }
 
   ctx.drawImage(
@@ -626,7 +681,7 @@ function draw(){
       size
     );
 
-    // 보스 경고 표시
+    // 보스 경고
     if (e.type === "boss" && e.dashState === "warn") {
 
       ctx.strokeStyle = "red";
@@ -644,10 +699,30 @@ function draw(){
 
       ctx.fillText(seconds, e.x, e.y - 40);
     }
+  });
 
+  // 🔥 리바이 이펙트
+  slashEffects.forEach((s, i) => {
+
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+
+    ctx.strokeStyle = "rgba(255,255,255," + (s.life/20) + ")";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.ellipse(s.x, s.y, s.radius, s.radius * 0.6, Math.PI/4, 0, Math.PI*2);
+    ctx.stroke();
+
+    s.radius += 8;
+    s.life--;
+
+    if (s.life <= 0) {
+      slashEffects.splice(i, 1);
+    }
   });
 }
-
 function activateHiddenMode(){
   if (hiddenMode) return;
   hiddenMode = true;
@@ -693,10 +768,21 @@ function activateHiddenMode(){
     setTimeout(() => {
 
       overlay.remove();
+overlay.remove();
+
+// 🔥 UI 스위칭 (여기!)
+document.getElementById("erenUI").classList.add("show");
+document.getElementById("leviUI").classList.remove("show");
+
+// 캐릭터 변경
+playerImg.src = erenImg.src;
+erenMode = true;
+leviMode = false;
 
       // 캐릭터 변경
       playerImg.src = erenImg.src;
       erenMode = true;
+leviMode = false;
 
       // 게임 재개
       playerImg.src = erenImg.src;
@@ -743,7 +829,109 @@ function activateTitanMode(){
     titanCooldown = false;
   }, 45000);
 
-}</script>
+}
+function activateLeviMode(){
+  if (leviMode) return;
+  leviMode = true;
+
+  document.getElementById("skillBar").classList.add("show");
+
+  inputBuffer = "";
+  gameOver = true;
+
+  const overlay = document.createElement("div");
+  overlay.style.position = "fixed";
+  overlay.style.top = "0";
+  overlay.style.left = "0";
+  overlay.style.width = "100%";
+  overlay.style.height = "100%";
+  overlay.style.background = "black";
+  overlay.style.display = "flex";
+  overlay.style.justifyContent = "center";
+  overlay.style.alignItems = "center";
+  overlay.style.zIndex = "9999";
+
+  const text = document.createElement("div");
+  text.innerText = "俺たちが戦う理由はただ一つ。\n生き残るためだ。\n\n우리가 싸우는 이유는 단 하나다.\n살아남기 위해서다.";
+  text.style.color = "white";
+  text.style.fontSize = "28px";
+  text.style.textAlign = "center";
+
+  overlay.appendChild(text);
+  document.body.appendChild(overlay);
+
+  setTimeout(() => {
+    text.innerText = "⚔️ 리바이 모드";
+
+    setTimeout(() => {
+
+      overlay.remove();
+document.getElementById("leviUI").classList.add("show");
+document.getElementById("erenUI").classList.remove("show");
+
+      // 🔥 캐릭터 변경
+      playerImg.src = leviImg.src;
+
+      leviMode = true;
+      erenMode = false;
+
+      gameOver = false;
+      requestAnimationFrame(loop);
+
+    }, 1000);
+
+  }, 2000);
+}
+let leviCooldown = false;
+
+function activateLeviSkill(){
+
+  if (leviCooldown) return;
+  leviCooldown = true;
+leviCooldownStart = Date.now();
+invincible = true; // ⭐ 무적 시작
+
+  // 🔥 이펙트 생성
+  spawnLeviSlash(player.x, player.y);
+
+  // 🔥 약간 딜레이 주고 타격 (타격감)
+  setTimeout(() => {
+
+    enemies = enemies.filter(e => {
+
+      const dx = player.x - e.x;
+      const dy = player.y - e.y;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist < 180) {
+        spawnSmokeEffect(e.x, e.y);
+        return false;
+      }
+      return true;
+    });
+
+  }, 80);
+setTimeout(() => {
+    invincible = false;
+  }, 300);
+  // 🔥 쿨타임
+  setTimeout(() => {
+    leviCooldown = false;
+  }, 45000);
+}
+
+function spawnLeviSlash(x, y){
+
+  slashEffects.push({
+    x,
+    y,
+    radius: 10,
+    maxRadius: 120,
+    life: 20 // 프레임
+  });
+
+}
+</script>
 
 <!-- 🔥 Firebase + 랭킹 -->
 <script type="module">
