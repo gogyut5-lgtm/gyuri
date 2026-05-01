@@ -218,7 +218,7 @@ let lightningX = 0;
 let lightningY = 0;
 let titanCooldownTime = 0;
 let titanDurationTime = 0;
-let lastBossTime = 0;
+let lastBossPhase = 0;
 
 
 // 🔥 키 입력 처리 (정석)
@@ -369,10 +369,12 @@ setInterval(()=>{
     spawnEnemy();
   }
 
-  // 🔥 30초마다 보스 등장
-if (time - lastBossTime >= 30) {
+// 🔥 30초마다 정확하게 1번씩 등장
+const phase = Math.floor(time / 30);
+
+if (phase > lastBossPhase) {
   spawnBoss();
-  lastBossTime = time;
+  lastBossPhase = phase;
 }
 },1000);
 
