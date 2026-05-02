@@ -26,12 +26,54 @@ canvas {
 #ui { margin-top:10px; font-weight:bold; }
 
 #rankingBox {
-  white-space:pre-line;
-  width:200px;
-  background:white;
-  padding:15px;
-  border-radius:15px;
-  box-shadow:0 8px 20px rgba(0,0,0,0.1);
+  width:220px;
+  padding:18px;
+  border-radius:18px;
+
+  background: rgba(255,255,255,0.2);
+  backdrop-filter: blur(10px);
+
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+  color:#222;
+
+  font-family: 'Pretendard','Noto Sans KR';
+}
+
+#rankingBox h3{
+  margin:0 0 10px 0;
+  text-align:center;
+  font-size:18px;
+}
+
+.rankItem{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+
+  padding:6px 8px;
+  border-radius:8px;
+  margin-bottom:6px;
+
+  background: rgba(255,255,255,0.4);
+}
+
+.rankItem:nth-child(1){
+  background: linear-gradient(90deg,#ffd700,#fff5b7);
+  font-weight:bold;
+}
+.rankItem:nth-child(2){
+  background: linear-gradient(90deg,#c0c0c0,#eeeeee);
+}
+.rankItem:nth-child(3){
+  background: linear-gradient(90deg,#cd7f32,#f5d3a4);
+}
+
+.rankName{
+  font-size:13px;
+}
+
+.rankScore{
+  font-weight:bold;
 }
 @keyframes smokeFade {
   from {
@@ -143,7 +185,10 @@ z-index:0;
 <button onclick="goBack()">⬅ 뒤로가기</button>
 
 <div id="wrap">
-  <div id="rankingBox">로딩중...</div>
+  <div id="rankingBox">
+  <h3>🏆 TOP 10</h3>
+  <div id="rankingList"></div>
+</div>
   <div id="gameArea">
 <div id="countdown" style="
   font-size:30px;
@@ -1084,19 +1129,27 @@ function loadRanking(){
   const q = query(rankingRef, orderBy("score","desc"), limit(10));
 
   onSnapshot(q, (snapshot)=>{
-    let text = "🏆 TOP 10\n\n";
-    let i=1;
+    const list = document.getElementById("rankingList");
+    list.innerHTML = "";
+
+    let i = 1;
 
     snapshot.forEach(doc=>{
       const d = doc.data();
-      text += `${i}. ${d.name} - ${d.score}초\n`;
+
+      const item = document.createElement("div");
+      item.className = "rankItem";
+
+      item.innerHTML = `
+        <span class="rankName">${i}. ${d.name}</span>
+        <span class="rankScore">${d.score}초</span>
+      `;
+
+      list.appendChild(item);
       i++;
     });
-
-    document.getElementById("rankingBox").innerText = text;
   });
 }
-
 loadRanking();
 
 startImg.onload = () => {
