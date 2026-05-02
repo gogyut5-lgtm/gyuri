@@ -119,6 +119,20 @@ z-index:0;
 #countdown{
   position: fixed; /* ⭐ 핵심 */
 }
+.gameUI{
+  position:absolute;
+  top:0px;
+  right:7px;
+  color:white;
+  font-weight:bold;
+  font-size:14px;
+  text-shadow:0 0 6px black;
+  z-index:20;
+  pointer-events:none;
+  background:rgba(0,0,0,0.4);
+  padding:6px 10px;
+  border-radius:8px;
+}
 </style>
 </head>
 
@@ -174,7 +188,7 @@ z-index:0;
 </div>
 
     <canvas id="gameCanvas" width="720" height="480"></canvas>
-    <div id="ui">Time: 0</div>
+<div id="ui" class="gameUI">Time: 0</div>
 
    </div>
 </div>
@@ -185,6 +199,8 @@ const SCALE = 1.2;
 function goBack(){
   location.href = "index.html";
 }
+const startImg = new Image();
+startImg.src = "start.png";
 const playerImg = new Image();
 playerImg.src = "player.png";
 const erenImg = new Image();
@@ -548,7 +564,7 @@ e.y += e.dy * e.speed * delta;
 
     // 🔥 충돌 처리
    let hitRange = 20 * SCALE;
-if (e.type === "boss") hitRange = 40 * SCALE;
+if (e.type === "boss") hitRange = 30 * SCALE;
 if (erenMode && titanMode) hitRange = (40 * 2.5) / 2 * SCALE;
 
     	if (dist < hitRange) {
@@ -708,6 +724,10 @@ function drawLightning(x, y){
 
 
 function draw(){
+ if (!player) {
+    ctx.drawImage(startImg, 0, 0, canvas.width, canvas.height);
+    return;
+  }
   ctx.fillStyle = "#C2B280";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -1079,6 +1099,13 @@ function loadRanking(){
 
 loadRanking();
 
+startImg.onload = () => {
+  draw();
+};
+
+window.onload = () => {
+  draw();
+};
 </script>
 
 </body>
