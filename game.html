@@ -916,8 +916,13 @@ leviMode = false;
       // 게임 재개
       playerImg.src = erenImg.src;
       erenMode = true;
-      gameOver = false;   // ⭐ restart 대신 이걸로
-      requestAnimationFrame(loop);
+     gameOver = false;
+
+// ⭐ 시간 초기화
+startTime = Date.now();
+pausedTime = 0;
+
+requestAnimationFrame(loop);
    
 
     }, 1000);
@@ -1004,8 +1009,13 @@ document.getElementById("erenUI").classList.remove("show");
       leviMode = true;
       erenMode = false;
 
-      gameOver = false;
-      requestAnimationFrame(loop);
+    gameOver = false;
+
+// ⭐ 시간 초기화
+startTime = Date.now();
+pausedTime = 0;
+
+requestAnimationFrame(loop);
 
     }, 1000);
 
