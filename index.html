@@ -56,7 +56,7 @@ button:hover{
 
 .bingo-wrapper {
   width: 300px;
-  border-radius: 20px;
+  border-radius: 1px;
   overflow: hidden;
   box-shadow: 0 8px 20px rgba(0,0,0,0.15);
   background: #fff0f6;
@@ -67,12 +67,13 @@ button:hover{
 .bingo-header {
   background: linear-gradient(90deg,#f9a8d4,#a78bfa);
   color: white;
-  padding: 10px;
+  padding: 14px 16px;     /* 👈 위아래 + 좌우 여백 증가 */
   display: flex;
   justify-content: space-between;
   font-weight: bold;
-}
 
+  font-size: 18px;        /* 👈 글씨 키우기 */
+}
 
 .grid {
   display: grid;
@@ -93,6 +94,7 @@ button:hover{
   color: #444;
   font-weight: bold;
   transition: 0.2s;
+font-size: 20px;
 }
 
 
