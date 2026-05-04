@@ -512,6 +512,7 @@ let isSelecting = false;
 document.getElementById("startBtn").onclick = startGame;
 
 function selectChar(type, el){
+
 fingerMode = false;
 erenMode = false;
 leviMode = false;
@@ -556,6 +557,7 @@ if (type === "eren"){
 
   document.getElementById("erenUI").classList.add("show");
   document.getElementById("leviUI").classList.remove("show");
+document.getElementById("fingerUI").classList.remove("show");
 }
 else if (type === "levi"){
   leviMode = true;
@@ -565,6 +567,7 @@ fingerMode = false;
 
   document.getElementById("leviUI").classList.add("show");
   document.getElementById("erenUI").classList.remove("show");
+document.getElementById("fingerUI").classList.remove("show");
 }
 else if (type === "finger"){
   fingerMode = true;
@@ -580,11 +583,12 @@ document.getElementById("fingerUI").classList.add("show");
 else {
   erenMode = false;
   leviMode = false;
-fingerMode = false; 
+  fingerMode = false; 
   playerImg.src = "player.png";
 
   document.getElementById("erenUI").classList.remove("show");
   document.getElementById("leviUI").classList.remove("show");
+  document.getElementById("fingerUI").classList.remove("show"); // ⭐ 추가
 }
 
   lastTime = performance.now();
@@ -666,6 +670,27 @@ else if (
   document.getElementById("fingerLock").classList.add("hide");
 
   showUnlockEffect("🖐️ 핑크핑거 해금!");
+}
+else if (
+  inputBuffer.includes("규태야사랑해") ||
+  inputBuffer.includes("rbxoditkfkdgo")
+) {
+
+  unlocked.eren = true;
+  unlocked.levi = true;
+  unlocked.finger = true;
+
+  document.getElementById("erenBtn").style.opacity = "1";
+  document.getElementById("leviBtn").style.opacity = "1";
+  document.getElementById("fingerBtn").style.opacity = "1";
+
+  document.getElementById("erenLock").classList.add("hide");
+  document.getElementById("leviLock").classList.add("hide");
+  document.getElementById("fingerLock").classList.add("hide");
+
+  showUnlockEffect("🔥 전 캐릭터 해금!");
+
+  inputBuffer = ""; // ⭐ 꼭 넣어 (중복 방지)
 }
 });
 // 🔥 이거 반드시 있어야함
@@ -1610,27 +1635,33 @@ function restartGame(){
 
   resetGameState();
 
-  // 캐릭 유지하면서 다시 시작
+  // 🔥 UI 전부 초기화
+  document.getElementById("erenUI").classList.remove("show");
+  document.getElementById("leviUI").classList.remove("show");
+  document.getElementById("fingerUI").classList.remove("show");
+
+  // 캐릭 유지
   if (selectedCharacter === "eren"){
     erenMode = true;
     playerImg.src = erenImg.src;
+    document.getElementById("erenUI").classList.add("show");
   }
   else if (selectedCharacter === "levi"){
     leviMode = true;
     playerImg.src = leviImg.src;
+    document.getElementById("leviUI").classList.add("show");
   }
- else if (selectedCharacter === "finger"){
-  fingerMode = true;
-  erenMode = false;
-  leviMode = false;
-  playerImg.src = fingerImg.src;
-}
-else {
-  erenMode = false;
-  leviMode = false;
-  fingerMode = false;
-  playerImg.src = "player.png";
-}
+  else if (selectedCharacter === "finger"){
+    fingerMode = true;
+    playerImg.src = fingerImg.src;
+    document.getElementById("fingerUI").classList.add("show");
+  }
+  else {
+    erenMode = false;
+    leviMode = false;
+    fingerMode = false;
+    playerImg.src = "player.png";
+  }
 
   lastTime = performance.now();
   requestAnimationFrame(loop);
