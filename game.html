@@ -293,6 +293,18 @@ z-index:0;
 #startBtn.hide{
   display:none;
 }
+.charBox{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+
+.charName{
+  margin-top:6px;
+  color:white;
+  font-size:14px;
+  font-weight:bold;
+}
 </style>
 </head>
 
@@ -316,23 +328,32 @@ z-index:0;
 
   <div id="charSelect">
 
-  <!-- 기본 캐릭 -->
-  <div class="charBox">
-    <img src="player.png" class="defaultChar" onclick="selectChar('default', this)">
-  </div>
+<!-- 기본 캐릭 -->
+<div class="charBox">
+  <img src="player.png" class="defaultChar" onclick="selectChar('default', this)">
+  <div class="charName">미카사</div>
+</div>
 
-  <!-- 에렌 -->
-  <div class="charBox">
-    <img src="eren.png" onclick="selectChar('eren', this)" id="erenBtn">
-    <div class="lock" id="erenLock">🔒</div>
-  </div>
+<!-- 에렌 -->
+<div class="charBox">
+  <img src="eren.png" onclick="selectChar('eren', this)" id="erenBtn">
+  <div class="charName">에렌</div>
+  <div class="lock" id="erenLock">🔒</div>
+</div>
 
-  <!-- 리바이 -->
-  <div class="charBox">
-    <img src="levi.png" onclick="selectChar('levi', this)" id="leviBtn">
-    <div class="lock" id="leviLock">🔒</div>
-  </div>
+<!-- 리바이 -->
+<div class="charBox">
+  <img src="levi.png" onclick="selectChar('levi', this)" id="leviBtn">
+  <div class="charName">리바이</div>
+  <div class="lock" id="leviLock">🔒</div>
+</div>
 
+<!-- 핑거 -->
+<div class="charBox">
+  <img src="finger.png" onclick="selectChar('finger', this)" id="fingerBtn">
+  <div class="charName">피크핑거</div>
+  <div class="lock" id="fingerLock">🔒</div>
+</div>
  </div>
 
 </div>
@@ -386,7 +407,19 @@ z-index:0;
       <div class="skillState" id="leviState">READY</div>
     </div>
   </div>
+<!-- 핑거 -->
+<div id="fingerUI" class="skillSet">
+  <div class="skillCard">
+    <div class="skillName">🔫 Q - 대거인포</div>
 
+    <div class="bar">
+      <div id="fingerDurationFill" class="fill duration"></div>
+      <div id="fingerCooldownFill" class="fill cooldown"></div>
+    </div>
+
+    <div class="skillState" id="fingerState">READY</div>
+  </div>
+</div>
 </div>
 
 </div>
@@ -423,6 +456,10 @@ const bossImg = new Image();
 bossImg.src = "boss.png";
 const leviImg = new Image();
 leviImg.src = "levi.png";
+const fingerImg = new Image();
+fingerImg.src = "finger.png";
+const fingerTitanImg = new Image();
+fingerTitanImg.src = "finger_titan.png"; // ← 새 이미지
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -455,16 +492,29 @@ let leviCooldownStart = 0;
 let leviDurationStart = 0;
 let leviSkillActive = false;
 let invincible = false;
+let fingerMode = false;
+let secretFingerEn = "akfpwjstk";
+let secretFingerKr = "마레전사";
+let fingerTitanMode = false;
+let fingerCooldown = false;
+let fingerCooldownTime = 0;
+let fingerDurationTime = 0;
+let fingerBullets = [];
+let fingerFireInterval = null;
 let selectedCharacter = "default";
 let unlocked = {
   eren: false,
-  levi: false
+  levi: false,
+  finger: false
 };
 let isSelecting = false;
 
 document.getElementById("startBtn").onclick = startGame;
 
 function selectChar(type, el){
+fingerMode = false;
+erenMode = false;
+leviMode = false;
 
   // ⭐ 이거 추가 (잠금 체크)
   if (type === "eren" && !unlocked.eren){
@@ -476,6 +526,11 @@ function selectChar(type, el){
     alert("리바이는 아직 잠겨있다!");
     return;
   }
+if (type === "finger" && !unlocked.finger){
+  alert("핑크핑거는 아직 잠겨있다!");
+  return;
+}
+
   isSelecting = false; // ⭐ 추가
   document.querySelectorAll("#charSelect img").forEach(img=>{
     img.classList.remove("selected");
@@ -496,6 +551,7 @@ document.getElementById("skillBar").classList.add("show");
 if (type === "eren"){
   erenMode = true;
   leviMode = false;
+  fingerMode = false; 
   playerImg.src = erenImg.src;
 
   document.getElementById("erenUI").classList.add("show");
@@ -504,14 +560,27 @@ if (type === "eren"){
 else if (type === "levi"){
   leviMode = true;
   erenMode = false;
+fingerMode = false; 
   playerImg.src = leviImg.src;
 
   document.getElementById("leviUI").classList.add("show");
   document.getElementById("erenUI").classList.remove("show");
 }
+else if (type === "finger"){
+  fingerMode = true;
+  erenMode = false;
+  leviMode = false;
+
+  playerImg.src = fingerImg.src;
+
+  document.getElementById("erenUI").classList.remove("show");
+document.getElementById("leviUI").classList.remove("show");
+document.getElementById("fingerUI").classList.add("show");
+}
 else {
   erenMode = false;
   leviMode = false;
+fingerMode = false; 
   playerImg.src = "player.png";
 
   document.getElementById("erenUI").classList.remove("show");
@@ -545,7 +614,10 @@ document.addEventListener("keydown", e => {
   else if (leviMode) {
     activateLeviSkill();
   }
-
+else if (fingerMode) {
+  if (fingerCooldown) return;
+  activateFingerTitan();
+}
   return;
 }
 
@@ -582,6 +654,18 @@ else if (
   document.getElementById("erenBtn").style.opacity = "1";
 document.getElementById("erenLock").classList.add("hide");
   showUnlockEffect("⚡ 에렌 해금!");
+}
+else if (
+  (inputBuffer.includes(secretFingerEn) ||
+   inputBuffer.includes(secretFingerKr)) &&
+  !unlocked.finger
+) {
+  unlocked.finger = true;
+
+  document.getElementById("fingerBtn").style.opacity = "1";
+  document.getElementById("fingerLock").classList.add("hide");
+
+  showUnlockEffect("🖐️ 핑크핑거 해금!");
 }
 });
 // 🔥 이거 반드시 있어야함
@@ -649,6 +733,44 @@ if (leviMode) {
     leviState.style.color = "#ffffff";
   }
 
+}
+// 🔥 핑거 UI
+const fcd = document.getElementById("fingerCooldownFill");
+const fdur = document.getElementById("fingerDurationFill");
+const fstate = document.getElementById("fingerState");
+
+if (fingerMode) {
+
+  // 쿨타임
+  if (fingerCooldown){
+    const total = 45000;
+    const remain = Math.max(0, total - (Date.now() - fingerCooldownTime));
+
+    fcd.style.width = (remain / total) * 100 + "%";
+
+    fstate.innerText = "쿨타임";
+    fstate.style.color = "#ff5555";
+  } else {
+    fcd.style.width = "0%";
+  }
+
+  // 지속시간
+  if (fingerTitanMode){
+    const total = 5000;
+    const remain = Math.max(0, total - (Date.now() - fingerDurationTime));
+
+    fdur.style.width = (remain / total) * 100 + "%";
+
+    fstate.innerText = "ACTIVE";
+    fstate.style.color = "#00ffcc";
+  } else {
+    fdur.style.width = "0%";
+
+    if (!fingerCooldown){
+      fstate.innerText = "READY";
+      fstate.style.color = "#ffffff";
+    }
+  }
 }
 }
 function pauseGameTime() {
@@ -845,17 +967,22 @@ if (erenMode && titanMode) hitRange = (40 * 2.5) / 2 * SCALE;
   // 🔥 리바이 무적
   if (invincible) return;
 
-  // 🔥 에렌 거인 상태 → 적 제거
+  // 🔥 에렌 거인 상태
   if (erenMode && titanMode) {
     spawnSmokeEffect(e.x, e.y);
     enemies = enemies.filter(en => en !== e);
     return;
   }
 
-  // 🔥 이미 죽었으면 무시
-  if (gameOver) return;
+  // 🔥 핑거 거인 상태 ⭐ 여기 추가
+  if (fingerMode && fingerTitanMode) {
+    spawnSmokeEffect(e.x, e.y);
+    enemies = enemies.filter(en => en !== e);
+    return;
+  }
 
   // 🔥 게임오버
+  if (gameOver) return;
   gameOver = true;
 
   const score = ((Date.now() - startTime - pausedTime) / 1000).toFixed(2);
@@ -871,7 +998,58 @@ document.getElementById("gameOverScreen").style.display = "flex";
 }
 
   });
+if (fingerMode && fingerTitanMode) {
 
+  const auraRange = 220;
+
+  enemies = enemies.filter(e => {
+
+    const dx = player.x - e.x;
+    const dy = player.y - e.y;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist < auraRange){
+      spawnSmokeEffect(e.x, e.y);
+      return false;
+    }
+
+    return true;
+  });
+
+}
+// 💥 여기부터 추가 ⭐⭐⭐
+fingerBullets.forEach((b, i) => {
+
+  b.x += b.dx * b.speed * delta;
+  b.y += b.dy * b.speed * delta;
+
+  // 🔥 적 충돌
+  enemies = enemies.filter(e => {
+    const dx = b.x - e.x;
+    const dy = b.y - e.y;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist < 20){
+      spawnSmokeEffect(e.x, e.y);
+      return false;
+    }
+    return true;
+  });
+b.life--;
+
+  if (b.life <= 0){
+    fingerBullets.splice(i, 1);
+    return; // ⭐ 이거 넣어줘 (버그 방지)
+  }
+  // 🔥 화면 밖 제거
+  if (
+    b.x < 0 || b.x > canvas.width ||
+    b.y < 0 || b.y > canvas.height
+  ){
+    fingerBullets.splice(i, 1);
+  }
+
+});
   // UI 업데이트
   if(!gameOver){
     document.getElementById("ui").innerText =
@@ -894,6 +1072,18 @@ function updateCountdown(){
       return;
     }
   }
+else if (fingerTitanMode) {
+  const total = 5000;
+  const remain = total - (Date.now() - fingerDurationTime);
+
+  if (remain <= 3000 && remain > 0) {
+    el.style.display = "block";
+    el.innerText = Math.ceil(remain / 1000);
+  } else {
+    el.style.display = "none";
+    return;
+  }
+}
 
   // 🔥 리바이
   else if (leviSkillActive) {
@@ -1021,6 +1211,9 @@ let size = 40 * SCALE;
   if (erenMode && titanMode) {
     size = 40 * 2.5 * SCALE;
   }
+if (fingerMode && fingerTitanMode) {
+  size = 40 * 2.2 * SCALE;
+}
 
   ctx.drawImage(
     playerImg,
@@ -1085,6 +1278,29 @@ let size = 40 * SCALE;
       slashEffects.splice(i, 1);
     }
   });
+fingerBullets.forEach(b => {
+
+  const angle = Math.atan2(b.dy, b.dx);
+
+  ctx.save();
+  ctx.translate(b.x, b.y);
+  ctx.rotate(angle);
+
+  // 🔥 잔상 먼저 ⭐⭐⭐
+  ctx.fillStyle = "rgba(255,200,0,0.2)";
+  ctx.beginPath();
+  ctx.ellipse(-6, 0, 12, 4, 0, 0, Math.PI * 2); // 뒤쪽으로 길게
+  ctx.fill();
+
+  // 🔥 총알 본체
+  ctx.fillStyle = "#ffd700";
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 8, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+
+});
 }
 function activateHiddenMode(){
   if (hiddenMode) return;
@@ -1291,11 +1507,50 @@ function spawnLeviSlash(x, y){
     y,
     radius: 10,
     maxRadius: 120,
-    life: 20 // 프레임
+    life: 35 // 프레임
   });
 
 }
+function activateFingerTitan(){
+
+  fingerCooldown = true;
+  fingerTitanMode = true;
+
+  fingerCooldownTime = Date.now();
+  fingerDurationTime = Date.now();
+
+  // ⚡ 번개 추가 (에렌이랑 동일)
+  lightningX = player.x;
+  lightningY = player.y;
+  lightningActive = true;
+fireFingerCannons();
+fingerFireInterval = setInterval(()=>{
+  fireFingerMachineGun();
+}, 80);
+  // 🔥 변신 이미지
+  playerImg.src = fingerTitanImg.src;
+
+  // ⚡ 번개 짧게 유지
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      lightningActive = false;
+    }, 100);
+  });
+
+  // 5초 유지
+  setTimeout(() => {
+    fingerTitanMode = false;
+    playerImg.src = fingerImg.src;
+ clearInterval(fingerFireInterval);
+  }, 5000);
+
+  // 45초 쿨타임
+  setTimeout(() => {
+    fingerCooldown = false;
+  }, 45000);
+}
 function resetGameState() {
+
   player = {x:300,y:200,speed:4};
   enemies = [];
   slashEffects = [];
@@ -1321,7 +1576,33 @@ function resetGameState() {
   leviSkillActive = false;
   invincible = false;
 
+  // ⭐⭐⭐ 핑거 추가 ⭐⭐⭐
+  fingerTitanMode = false;
+  fingerCooldown = false;
+  if (fingerFireInterval) clearInterval(fingerFireInterval);
+  fingerBullets = [];
+
   document.getElementById("ui").innerText = "Time: 0";
+}
+function fireFingerMachineGun(){
+
+  const bulletCount = 3; // 🔥 한 번에 몇 발 (3~6 추천)
+
+  for (let i = 0; i < bulletCount; i++){
+
+    const angle = Math.random() * Math.PI * 2; // 🔥 랜덤 방향
+
+  fingerBullets.push({
+  x: player.x + (Math.random()*10-5),
+  y: player.y + (Math.random()*10-5),
+  dx: Math.cos(angle),
+  dy: Math.sin(angle),
+  speed: 6 + Math.random()*3,
+  life: 35
+});
+
+
+}
 }
 function restartGame(){
 
@@ -1338,9 +1619,18 @@ function restartGame(){
     leviMode = true;
     playerImg.src = leviImg.src;
   }
-  else {
-    playerImg.src = "player.png";
-  }
+ else if (selectedCharacter === "finger"){
+  fingerMode = true;
+  erenMode = false;
+  leviMode = false;
+  playerImg.src = fingerImg.src;
+}
+else {
+  erenMode = false;
+  leviMode = false;
+  fingerMode = false;
+  playerImg.src = "player.png";
+}
 
   lastTime = performance.now();
   requestAnimationFrame(loop);
@@ -1397,6 +1687,25 @@ function openCharSelect(){
 
   // 플레이 상태 초기화 (안 해주면 버그 남)
   gameOver = true;
+}
+function fireFingerCannons(){
+
+  const bulletCount = 12; // 🔥 사방 발사 (12방향)
+
+  for (let i = 0; i < bulletCount; i++){
+
+    const angle = (Math.PI * 2 / bulletCount) * i;
+
+    fingerBullets.push({
+  x: player.x,
+  y: player.y,
+  dx: Math.cos(angle),
+  dy: Math.sin(angle),
+  speed: 6,
+  life: 35
+});
+
+  }
 }
 </script>
 
