@@ -175,6 +175,124 @@ z-index:0;
   padding:6px 10px;
   border-radius:8px;
 }
+.selected {
+  outline: 3px solid yellow;
+}
+#charScreen{
+  position:absolute;   /* ⭐ fixed → absolute */
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+
+  background:rgba(0,0,0,0.6); /* ⭐ 반투명 */
+
+  display:none;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+
+  z-index:50;
+}
+
+#charScreen h2{
+  color:white;
+  font-size:28px;
+  margin-bottom:20px;
+}
+
+/* 캐릭터 선택 UI */
+#charScreen #charSelect{
+  display:flex;
+  gap:20px;
+}
+
+#charScreen #charSelect img{
+  width:80px;
+  height:80px;
+  cursor:pointer;
+  border-radius:10px;
+  opacity:0.5;
+  transition:0.2s;
+}
+
+#charScreen #charSelect img:hover{
+  opacity:1;
+  transform:scale(1.1);
+}
+#gameOverScreen{
+  position:absolute;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:rgba(0,0,0,0.7);
+
+  display:none;
+  align-items:center;
+  justify-content:center;
+
+  z-index:100;
+}
+
+.gameOverBox{
+  background:white;
+  padding:30px;
+  border-radius:12px;
+  text-align:center;
+}
+
+.gameOverBox button{
+  margin-top:10px;
+  padding:10px 20px;
+  font-size:16px;
+  cursor:pointer;
+}
+.defaultChar{
+  opacity:1 !important;
+}
+.charBox{
+  position:relative;
+}
+
+.lock{
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%, -50%);
+  font-size:28px;
+  pointer-events:none;
+}
+
+.lock.hide{
+  display:none;
+}
+#startBtn{
+  position:absolute;
+  left:70%;
+  top:70%;
+  transform:translate(-50%, -50%);
+
+  padding:14px 28px;
+  font-size:18px;
+  font-weight:bold;
+
+  border:none;
+  border-radius:10px;
+
+  background:linear-gradient(135deg,#ff7a7a,#ff3d3d);
+  color:white;
+
+  box-shadow:0 5px 15px rgba(0,0,0,0.3);
+  cursor:pointer;
+
+  z-index:30;
+}
+
+/* 숨김 */
+#startBtn.hide{
+  display:none;
+}
 </style>
 </head>
 
@@ -190,6 +308,45 @@ z-index:0;
   <div id="rankingList"></div>
 </div>
   <div id="gameArea">
+
+  <canvas id="gameCanvas" width="720" height="480"></canvas>
+  <button id="startBtn">▶ 시작하기</button>
+<div id="charScreen">
+    <h2>캐릭터 선택</h2>
+
+  <div id="charSelect">
+
+  <!-- 기본 캐릭 -->
+  <div class="charBox">
+    <img src="player.png" class="defaultChar" onclick="selectChar('default', this)">
+  </div>
+
+  <!-- 에렌 -->
+  <div class="charBox">
+    <img src="eren.png" onclick="selectChar('eren', this)" id="erenBtn">
+    <div class="lock" id="erenLock">🔒</div>
+  </div>
+
+  <!-- 리바이 -->
+  <div class="charBox">
+    <img src="levi.png" onclick="selectChar('levi', this)" id="leviBtn">
+    <div class="lock" id="leviLock">🔒</div>
+  </div>
+
+ </div>
+
+</div>
+ <!-- ✅ 게임오버 -->
+  <div id="gameOverScreen">
+    <div class="gameOverBox">
+      <h2>GAME OVER</h2>
+      <p id="finalScore"></p>
+      <button onclick="restartGame()">🔄 다시하기</button>
+<button onclick="openCharSelect()">🎭 캐릭터 선택</button>
+    </div>
+  </div>
+ <div id="ui" class="gameUI">Time: 0</div>
+
 <div id="countdown" style="
   font-size:30px;
   font-weight:bold;
@@ -199,7 +356,7 @@ z-index:0;
   pointer-events:none;
 "></div>
 
-   <div id="skillBar">
+<div id="skillBar">
 
   <!-- 에렌 -->
   <div id="erenUI" class="skillSet">
@@ -232,11 +389,18 @@ z-index:0;
 
 </div>
 
-    <canvas id="gameCanvas" width="720" height="480"></canvas>
-<div id="ui" class="gameUI">Time: 0</div>
-
+</div>
+   
    </div>
 </div>
+
+  <!-- ✅ 캐릭 선택 -->
+  
+
+ 
+
+
+   
 
 <!-- 🔥 게임 코드 -->
 <script>
@@ -291,13 +455,78 @@ let leviCooldownStart = 0;
 let leviDurationStart = 0;
 let leviSkillActive = false;
 let invincible = false;
+let selectedCharacter = "default";
+let unlocked = {
+  eren: false,
+  levi: false
+};
+let isSelecting = false;
 
+document.getElementById("startBtn").onclick = startGame;
+
+function selectChar(type, el){
+
+  // ⭐ 이거 추가 (잠금 체크)
+  if (type === "eren" && !unlocked.eren){
+    alert("에렌은 아직 잠겨있다!");
+    return;
+  }
+
+  if (type === "levi" && !unlocked.levi){
+    alert("리바이는 아직 잠겨있다!");
+    return;
+  }
+  isSelecting = false; // ⭐ 추가
+  document.querySelectorAll("#charSelect img").forEach(img=>{
+    img.classList.remove("selected");
+  });
+  el.classList.add("selected");
+
+  selectedCharacter = type;
+
+  // 선택 화면 닫기
+  document.getElementById("charScreen").style.display = "none";
+document.getElementById("skillBar").classList.add("show");
+  // 게임 UI 다시 보이기
+  document.getElementById("wrap").style.display = "flex";
+
+  // 게임 시작
+  resetGameState();
+
+if (type === "eren"){
+  erenMode = true;
+  leviMode = false;
+  playerImg.src = erenImg.src;
+
+  document.getElementById("erenUI").classList.add("show");
+  document.getElementById("leviUI").classList.remove("show");
+}
+else if (type === "levi"){
+  leviMode = true;
+  erenMode = false;
+  playerImg.src = leviImg.src;
+
+  document.getElementById("leviUI").classList.add("show");
+  document.getElementById("erenUI").classList.remove("show");
+}
+else {
+  erenMode = false;
+  leviMode = false;
+  playerImg.src = "player.png";
+
+  document.getElementById("erenUI").classList.remove("show");
+  document.getElementById("leviUI").classList.remove("show");
+}
+
+  lastTime = performance.now();
+  requestAnimationFrame(loop);
+}
 
 // 🔥 키 입력 처리 (정석)
 document.addEventListener("keydown", e => {
 
- console.log("key:", e.key);        // 👈 여기 추가
-  console.log("buffer:", inputBuffer); // 👈 여기 추가
+ //console.log("key:", e.key);        // 👈 여기 추가
+  //console.log("buffer:", inputBuffer); // 👈 여기 추가
 
   if (e.key === "Process") return;
 
@@ -332,19 +561,29 @@ document.addEventListener("keydown", e => {
   // 에렌
  // 🔥 리바이 먼저 검사 (중요)
 if (
-  inputBuffer.includes(secretLeviEn) ||
-  inputBuffer.includes(secretLeviKr)
+  (inputBuffer.includes(secretLeviEn) ||
+   inputBuffer.includes(secretLeviKr)) &&
+  !unlocked.levi   // ⭐ 이거 추가
 ) {
-  activateLeviMode();
+  unlocked.levi = true;
+
+  document.getElementById("leviBtn").style.opacity = "1";
+document.getElementById("leviLock").classList.add("hide");
+  showUnlockEffect("🌀 리바이 해금!");
 }
+
 else if (
-  inputBuffer.includes(secretEn) ||
-  inputBuffer.includes(secretKr)
+  (inputBuffer.includes(secretEn) ||
+   inputBuffer.includes(secretKr)) &&
+  !unlocked.eren   // ⭐ 이거 추가
 ) {
-  activateHiddenMode();
+  unlocked.eren = true;
+
+  document.getElementById("erenBtn").style.opacity = "1";
+document.getElementById("erenLock").classList.add("hide");
+  showUnlockEffect("⚡ 에렌 해금!");
 }
 });
-
 // 🔥 이거 반드시 있어야함
 document.addEventListener("keyup", e => {
   keys[e.key.toLowerCase()] = false;
@@ -435,22 +674,11 @@ window.addEventListener("blur", pauseGameTime);
 window.addEventListener("focus", resumeGameTime);
 
 function startGame(){
-  keys = {};
-  player = {x:300,y:200,speed:4};
-  enemies = [];
-  startTime = Date.now();
-  gameOver = false;
-  lastTime = 0;
-  pausedTime = 0;
-  isPaused = false;
-  inputBuffer = "";
-
-  titanCooldown = false;
-  lastBossPhase = 0;
-  lightningActive = false;
-leviCooldown = false;
-  leviCooldownStart = 0;
-  requestAnimationFrame(loop);
+ document.getElementById("startBtn").classList.add("hide");
+gameOver = true;
+  isSelecting = true; // ⭐ 추가
+  document.getElementById("charScreen").style.display = "flex";
+ draw();
 }
 
 function spawnEnemy(){
@@ -516,7 +744,7 @@ setInterval(()=>{
   // 🔥 30초마다 보스
   const phase = Math.floor(time / 30);
 
-  if (phase > lastBossPhase) {
+  if (phase > lastBossPhase && time >= 30) {
     spawnBoss();
     lastBossPhase = phase;
   }
@@ -635,7 +863,8 @@ if (erenMode && titanMode) hitRange = (40 * 2.5) / 2 * SCALE;
   saveScoreToServer(score);
 
   setTimeout(() => {
-    alert("생존: " + score + "초");
+    document.getElementById("finalScore").innerText = "생존: " + score + "초";
+document.getElementById("gameOverScreen").style.display = "flex";
   }, 0);
 
   return;
@@ -769,6 +998,11 @@ function drawLightning(x, y){
 
 
 function draw(){
+if (isSelecting) {
+    ctx.fillStyle = "#C2B280";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
  if (!player) {
     ctx.drawImage(startImg, 0, 0, canvas.width, canvas.height);
     return;
@@ -904,23 +1138,10 @@ document.getElementById("erenUI").classList.add("show");
 document.getElementById("leviUI").classList.remove("show");
 
 // 캐릭터 변경
+resetGameState();
 playerImg.src = erenImg.src;
 erenMode = true;
 leviMode = false;
-
-      // 캐릭터 변경
-      playerImg.src = erenImg.src;
-      erenMode = true;
-leviMode = false;
-
-      // 게임 재개
-      playerImg.src = erenImg.src;
-      erenMode = true;
-     gameOver = false;
-
-// ⭐ 시간 초기화
-startTime = Date.now();
-pausedTime = 0;
 
 requestAnimationFrame(loop);
    
@@ -986,10 +1207,8 @@ function activateLeviMode(){
   overlay.style.zIndex = "9999";
 
   const text = document.createElement("div");
-  text.innerText = "俺たちが戦う理由はただ一つ。\n生き残るためだ。\n\n우리가 싸우는 이유는 단 하나다.\n살아남기 위해서다.";
+  text.innerText = "리바이 모드";
   text.style.color = "white";
-  text.style.fontSize = "28px";
-  text.style.textAlign = "center";
 
   overlay.appendChild(text);
   document.body.appendChild(overlay);
@@ -1000,27 +1219,22 @@ function activateLeviMode(){
     setTimeout(() => {
 
       overlay.remove();
-document.getElementById("leviUI").classList.add("show");
-document.getElementById("erenUI").classList.remove("show");
+      document.getElementById("leviUI").classList.add("show");
+      document.getElementById("erenUI").classList.remove("show");
 
-      // 🔥 캐릭터 변경
       playerImg.src = leviImg.src;
 
-      leviMode = true;
       erenMode = false;
+      leviMode = true;
 
-    gameOver = false;
-
-// ⭐ 시간 초기화
-startTime = Date.now();
-pausedTime = 0;
-
-requestAnimationFrame(loop);
+      resetGameState();
+      requestAnimationFrame(loop);
 
     }, 1000);
 
   }, 2000);
 }
+
 let leviCooldown = false;
 
 function activateLeviSkill(){
@@ -1080,6 +1294,109 @@ function spawnLeviSlash(x, y){
     life: 20 // 프레임
   });
 
+}
+function resetGameState() {
+  player = {x:300,y:200,speed:4};
+  enemies = [];
+  slashEffects = [];
+
+  keys = {};
+  inputBuffer = "";
+
+  startTime = Date.now();
+  pausedTime = 0;
+  lastTime = performance.now();
+  isPaused = false;
+
+  gameOver = false;
+  lastBossPhase = -1;
+
+  // 에렌
+  titanMode = false;
+  titanCooldown = false;
+  lightningActive = false;
+
+  // 리바이
+  leviCooldown = false;
+  leviSkillActive = false;
+  invincible = false;
+
+  document.getElementById("ui").innerText = "Time: 0";
+}
+function restartGame(){
+
+  document.getElementById("gameOverScreen").style.display = "none";
+
+  resetGameState();
+
+  // 캐릭 유지하면서 다시 시작
+  if (selectedCharacter === "eren"){
+    erenMode = true;
+    playerImg.src = erenImg.src;
+  }
+  else if (selectedCharacter === "levi"){
+    leviMode = true;
+    playerImg.src = leviImg.src;
+  }
+  else {
+    playerImg.src = "player.png";
+  }
+
+  lastTime = performance.now();
+  requestAnimationFrame(loop);
+}
+function showUnlockEffect(text){
+
+  const overlay = document.createElement("div");
+
+  overlay.style.position = "fixed";
+  overlay.style.top = "0";
+  overlay.style.left = "0";
+  overlay.style.width = "100%";
+  overlay.style.height = "100%";
+  overlay.style.background = "rgba(0,0,0,0.9)";
+  overlay.style.display = "flex";
+  overlay.style.justifyContent = "center";
+  overlay.style.alignItems = "center";
+  overlay.style.zIndex = "9999";
+
+  const msg = document.createElement("div");
+  msg.innerText = text;
+  msg.style.color = "white";
+  msg.style.fontSize = "40px";
+  msg.style.fontWeight = "bold";
+  msg.style.textAlign = "center";
+  msg.style.transform = "scale(0.5)";
+  msg.style.opacity = "0";
+  msg.style.transition = "0.3s";
+
+  overlay.appendChild(msg);
+  document.body.appendChild(overlay);
+
+  // 등장 애니메이션
+  setTimeout(()=>{
+    msg.style.transform = "scale(1)";
+    msg.style.opacity = "1";
+  },10);
+
+  // 사라짐
+  setTimeout(()=>{
+    overlay.remove();
+  },1200);
+}
+function openCharSelect(){
+
+  // 게임오버창 닫기
+  document.getElementById("gameOverScreen").style.display = "none";
+
+  // 캐릭 선택창 열기
+  document.getElementById("charScreen").style.display = "flex";
+
+  // 선택 상태로 전환
+  isSelecting = true;
+
+  // 플레이 상태 초기화 (안 해주면 버그 남)
+  gameOver = true;
 }
 </script>
 
@@ -1170,6 +1487,5 @@ window.onload = () => {
   draw();
 };
 </script>
-
 </body>
 </html>
