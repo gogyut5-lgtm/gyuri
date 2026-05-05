@@ -950,7 +950,7 @@ setInterval(()=>{
   const time = (Date.now() - startTime - pausedTime) / 1000;
 
   // 일반 적
-  const count = 1 + Math.floor(time / 15);
+  const count = 1 + Math.floor(time / 20);
   for (let i = 0; i < count; i++) {
     spawnEnemy();
   }
@@ -969,7 +969,7 @@ if (phase > lastBossPhase && time >= 30) {
   lastBossPhase = phase;
 }
 
-},1000);
+},2000);
 function spawnBoss(){
   enemies.push({
     x: Math.random()*600,
