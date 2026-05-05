@@ -1297,7 +1297,7 @@ else if (fingerTitanMode) {
 
   // 🔥 리바이
   else if (leviSkillActive) {
-    const total = 3000;
+    const total = 5000;
     const remain = total - (Date.now() - leviDurationStart);
 
     if (remain > 0) {
@@ -1433,7 +1433,18 @@ let size = 40 * SCALE;
 if (fingerMode && fingerTitanMode) {
   size = 40 * 2.2 * SCALE;
 }
+// 🔥 이스터에그 오브젝트
+easterObjects.forEach(o => {
 
+  ctx.drawImage(
+    easterImg,
+    o.x - o.size/2,
+    o.y - o.size/2,
+    o.size,
+    o.size
+  );
+
+});
   ctx.drawImage(
     playerImg,
     player.x - size/2,
@@ -1506,18 +1517,7 @@ if (e.type === "female" && e.dashState === "jump") {
       ctx.fillText(seconds, e.x, e.y - 40);
     }
   });
-// 🔥 이스터에그 오브젝트
-easterObjects.forEach(o => {
 
-  ctx.drawImage(
-    easterImg,
-    o.x - o.size/2,
-    o.y - o.size/2,
-    o.size,
-    o.size
-  );
-
-});
   // 🔥 리바이 이펙트
   slashEffects.forEach((s, i) => {
 
@@ -1780,7 +1780,7 @@ function activateLeviSkill(){
 leviDurationStart = Date.now();
 leviSkillActive = true;
 
-  const duration = 3000; // 🔥 3초 지속
+  const duration = 5000; // 🔥 3초 지속
   const intervalTime = 100; // 🔥 0.1초마다 베기
 
   const start = Date.now();
@@ -1883,7 +1883,7 @@ function resetGameState() {
   player = {x:300,y:200,speed:4};
   enemies = [];
   slashEffects = [];
-
+easterObjects = [];
   keys = {};
   inputBuffer = "";
 
