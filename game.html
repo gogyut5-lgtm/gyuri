@@ -420,8 +420,17 @@ z-index:0;
     <div class="skillState" id="fingerState">READY</div>
   </div>
 </div>
-</div>
+<div id="dashUI" class="skillSet show">
+  <div class="skillCard">
+    <div class="skillName">⚡ SHIFT - 입체기동</div>
 
+    <div class="bar">
+      <div id="dashCooldownFill" class="fill cooldown"></div>
+    </div>
+
+    <div class="skillState" id="dashState">READY</div>
+  </div>
+</div>
 </div>
    
    </div>
@@ -501,6 +510,14 @@ let fingerCooldownTime = 0;
 let fingerDurationTime = 0;
 let fingerBullets = [];
 let fingerFireInterval = null;
+let dashActive = false;
+let dashEndTime = 0;
+let dashCooldown = false;
+let dashCooldownTime = 0;
+let dashDir = {x:0, y:0};
+let wireActive = false;
+let wireTarget = {x:0, y:0};
+let wireSpeed = 25;
 let selectedCharacter = "default";
 let unlocked = {
   eren: false,
@@ -692,6 +709,37 @@ else if (
 
   inputBuffer = ""; // ⭐ 꼭 넣어 (중복 방지)
 }
+// 🔥 Shift 입체기동
+if (e.key === "Shift") {
+
+  if (dashCooldown || dashActive) return;
+
+  let dx = 0;
+  let dy = 0;
+
+  if (keys["arrowup"] || keys["w"]) dy -= 1;
+  if (keys["arrowdown"] || keys["s"]) dy += 1;
+  if (keys["arrowleft"] || keys["a"]) dx -= 1;
+  if (keys["arrowright"] || keys["d"]) dx += 1;
+
+  // 방향 안누르면 발동 안됨
+  if (dx === 0 && dy === 0) return;
+
+  const len = Math.hypot(dx, dy);
+  dx /= len;
+dy /= len;
+
+// 🔥 목표 지점 생성
+wireTarget.x = player.x + dx * 200;
+wireTarget.y = player.y + dy * 200;
+
+wireActive = true;
+
+  dashCooldown = true;
+  dashCooldownTime = Date.now();
+
+  invincible = true; // ⭐ 무적
+}
 });
 // 🔥 이거 반드시 있어야함
 document.addEventListener("keyup", e => {
@@ -797,6 +845,23 @@ if (fingerMode) {
     }
   }
 }
+const dFill = document.getElementById("dashCooldownFill");
+const dState = document.getElementById("dashState");
+
+if (dashCooldown) {
+  const total = 1500;
+  const remain = Math.max(0, total - (Date.now() - dashCooldownTime));
+
+  dFill.style.width = (remain / total) * 100 + "%";
+
+  dState.innerText = "쿨타임";
+  dState.style.color = "#ff5555";
+} else {
+  dFill.style.width = "0%";
+  dState.innerText = "READY";
+  dState.style.color = "#ffffff";
+}
+
 }
 function pauseGameTime() {
   if (!isPaused) {
@@ -853,17 +918,12 @@ function spawnEnemy(){
   }
 
   // 🔥 중심(플레이 영역) 향하도록 방향 계산
-  const targetX = canvas.width / 2;
-  const targetY = canvas.height / 2;
+  const angle = Math.random() * Math.PI * 2;
 
-  let dx = targetX - x;
-  let dy = targetY - y;
-  const length = Math.hypot(dx, dy);
+  const dx = Math.cos(angle);
+  const dy = Math.sin(angle);
 
-  dx /= length;
-  dy /= length;
-
-  const speed = 1.5 + Math.random() * 2.5;
+  const speed = 0.6 + Math.random() * 1.2;
 
   enemies.push({
     x,
@@ -919,6 +979,46 @@ function update(delta){
   if(keys["arrowleft"] || keys["a"]) player.x -= player.speed * delta;
   if(keys["arrowright"] || keys["d"]) player.x += player.speed * delta;
 
+// 🔥 입체기동 (와이어 이동)
+if (wireActive) {
+
+  let dx = wireTarget.x - player.x;
+  let dy = wireTarget.y - player.y;
+  let dist = Math.hypot(dx, dy);
+
+  if (dist < 10) {
+    player.x = wireTarget.x;
+    player.y = wireTarget.y;
+
+    wireActive = false;
+ setTimeout(() => {
+    invincible = false;
+  }, 400); // 0.4초 (원하면 300~600 조절)
+
+  return;
+}
+ // 이동 먼저
+let vx = (dx / dist) * wireSpeed * delta;
+let vy = (dy / dist) * wireSpeed * delta;
+
+player.x += vx;
+player.y += vy;
+
+// 🔥 벽 튕김
+if (player.x <= 0 || player.x >= canvas.width) {
+  wireTarget.x = player.x - dx; // 방향 반전
+}
+
+if (player.y <= 0 || player.y >= canvas.height) {
+  wireTarget.y = player.y - dy;
+}
+
+// 🔥 너무 오래 지속 방지 (중요)
+if (Date.now() - dashCooldownTime > 400) {
+  wireActive = false;
+  invincible = false;
+}
+}
   // 맵 밖 제한
   if (player.x < 0) player.x = 0;
   if (player.y < 0) player.y = 0;
@@ -978,9 +1078,9 @@ function update(delta){
 
     } else {
       // 일반 적
-e.x += e.dx * e.speed * delta;
-e.y += e.dy * e.speed * delta;
-    }
+// 일반 적 (플레이어 추적)
+e.x += (dx / dist) * e.speed * delta;
+e.y += (dy / dist) * e.speed * delta;
 
     // 🔥 충돌 처리
    let hitRange = 20 * SCALE;
@@ -1021,7 +1121,7 @@ document.getElementById("gameOverScreen").style.display = "flex";
 
   return;
 }
-
+}
   });
 if (fingerMode && fingerTitanMode) {
 
@@ -1040,8 +1140,8 @@ if (fingerMode && fingerTitanMode) {
 
     return true;
   });
-
 }
+
 // 💥 여기부터 추가 ⭐⭐⭐
 fingerBullets.forEach((b, i) => {
 
@@ -1073,8 +1173,13 @@ b.life--;
   ){
     fingerBullets.splice(i, 1);
   }
-
 });
+// 🔥 대쉬 쿨타임 ⭐ 여기!
+if (dashCooldown) {
+  if (Date.now() - dashCooldownTime > 1500) {
+    dashCooldown = false;
+  }
+}	
   // UI 업데이트
   if(!gameOver){
     document.getElementById("ui").innerText =
@@ -1247,7 +1352,16 @@ if (fingerMode && fingerTitanMode) {
     size,
     size
   );
+// 🔥 와이어 그리기
+if (wireActive) {
+  ctx.strokeStyle = "#000000";
+  ctx.lineWidth = 2;
 
+  ctx.beginPath();
+  ctx.moveTo(player.x, player.y);
+  ctx.lineTo(wireTarget.x, wireTarget.y);
+  ctx.stroke();
+}
   // 적
   enemies.forEach(e => {
 
@@ -1285,24 +1399,24 @@ if (fingerMode && fingerTitanMode) {
   // 🔥 리바이 이펙트
   slashEffects.forEach((s, i) => {
 
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+  ctx.beginPath();
+  ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
 
-    ctx.strokeStyle = "rgba(255,255,255," + (s.life/20) + ")";
-    ctx.lineWidth = 3;
-    ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255," + (s.life/20) + ")";
+  ctx.lineWidth = 3;
+  ctx.stroke();
 
-    ctx.beginPath();
-    ctx.ellipse(s.x, s.y, s.radius, s.radius * 0.6, Math.PI/4, 0, Math.PI*2);
-    ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(s.x, s.y, s.radius, s.radius * 0.6, Math.PI/4, 0, Math.PI*2);
+  ctx.stroke();
 
-    s.radius += 8;
-    s.life--;
+  s.radius += 8;
+  s.life--;
 
-    if (s.life <= 0) {
-      slashEffects.splice(i, 1);
-    }
-  });
+  if (s.life <= 0) {
+    slashEffects.splice(i, 1);
+  }
+});
 fingerBullets.forEach(b => {
 
   const angle = Math.atan2(b.dy, b.dx);
@@ -1498,6 +1612,9 @@ leviSkillActive = true;
     // 🔥 이펙트 계속 생성
     spawnLeviSlash(player.x, player.y);
 
+canvas.style.transform = "translate(" + (Math.random()*6-3) + "px," + (Math.random()*6-3) + "px)";
+  setTimeout(()=> canvas.style.transform="", 50);
+
     // 🔥 주변 적 계속 제거
     enemies = enemies.filter(e => {
       const dx = player.x - e.x;
@@ -1525,17 +1642,25 @@ leviSkillActive = true;
     leviCooldown = false;
   }, 45000);
 }
+
 function spawnLeviSlash(x, y){
 
-  slashEffects.push({
-    x,
-    y,
-    radius: 10,
-    maxRadius: 120,
-    life: 22 // 프레임
-  });
+  const count = 12;
 
+  for (let i = 0; i < count; i++){
+
+    const angle = (Math.PI * 2 / count) * i;
+
+    slashEffects.push({
+      x,
+      y,
+      radius: 10,
+      life: 20,
+      angle: angle + Date.now()*0.01, // 🔥 회전 느낌
+      speed: 12
+    });
 }
+  }
 function activateFingerTitan(){
 
   fingerCooldown = true;
@@ -1606,6 +1731,13 @@ function resetGameState() {
   fingerCooldown = false;
   if (fingerFireInterval) clearInterval(fingerFireInterval);
   fingerBullets = [];
+dashActive = false;
+dashCooldown = false;
+dashDir = {x:0, y:0};
+dashEndTime = 0;
+dashCooldownTime = 0;
+wireActive = false;
+wireTarget = {x:0, y:0};
 
   document.getElementById("ui").innerText = "Time: 0";
 }
