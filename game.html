@@ -463,6 +463,10 @@ const enemyImg = new Image();
 enemyImg.src = "enemy.png";
 const bossImg = new Image();
 bossImg.src = "boss.png";
+const femaleTitanImg = new Image();
+femaleTitanImg.src = "female.png";
+const easterImg = new Image();
+easterImg.src = "easter.png";
 const leviImg = new Image();
 leviImg.src = "levi.png";
 const fingerImg = new Image();
@@ -515,6 +519,9 @@ let dashEndTime = 0;
 let dashCooldown = false;
 let dashCooldownTime = 0;
 let dashDir = {x:0, y:0};
+let femaleEffects = [];
+let shockwaves = [];
+let easterObjects = [];
 let wireActive = false;
 let wireTarget = {x:0, y:0};
 let wireSpeed = 25;
@@ -948,13 +955,19 @@ setInterval(()=>{
     spawnEnemy();
   }
 
-  // 🔥 30초마다 보스
-  const phase = Math.floor(time / 30);
+const phase = Math.floor(time / 30);
 
-  if (phase > lastBossPhase && time >= 30) {
+if (phase > lastBossPhase && time >= 30) {
+
+  // 🔥 60초 → 여성형
+  if (phase % 2 === 0) {
+    spawnFemaleTitan();
+  } else {
     spawnBoss();
-    lastBossPhase = phase;
   }
+
+  lastBossPhase = phase;
+}
 
 },1000);
 function spawnBoss(){
@@ -969,7 +982,21 @@ function spawnBoss(){
     dashTargetY: 0
   });
 }
+function spawnFemaleTitan(){
+  enemies.push({
+    x: canvas.width / 2,
+    y: -50,
+    speed: 1.5,
+    type: "female",
 
+    dashState: "idle",
+    dashTimer: 120,
+
+    // 🔥 추가
+    jumpTargetX: 0,
+    jumpTargetY: 0
+  });
+}
 function update(delta){
   if(gameOver) return;
 
@@ -993,7 +1020,7 @@ if (wireActive) {
     wireActive = false;
  setTimeout(() => {
     invincible = false;
-  }, 400); // 0.4초 (원하면 300~600 조절)
+  }, 300); // 0.4초 (원하면 300~600 조절)
 
   return;
 }
@@ -1027,102 +1054,153 @@ if (Date.now() - dashCooldownTime > 400) {
 
   enemies.forEach(e => {
 
-    let dx = player.x - e.x;
-    let dy = player.y - e.y;
-    let dist = Math.hypot(dx, dy);
-    if (dist === 0) dist = 0.01;
+  let dx = player.x - e.x;
+  let dy = player.y - e.y;
+  let dist = Math.hypot(dx, dy);
+  if (dist === 0) dist = 0.01;
 
-    // 🔥 보스 패턴
-    if (e.type === "boss") {
+  // 🔥 보스
+  if (e.type === "boss") {
 
-      if (e.dashState === "idle") {
+    if (e.dashState === "idle") {
 
-        e.dashTimer -= delta;
+      e.dashTimer -= delta;
 
-        if (e.dashTimer <= 0) {
-          e.dashState = "warn";
-          e.dashTimer = 180;
-          e.dashTargetX = player.x;
-          e.dashTargetY = player.y;
-        }
-
-        // 평소엔 추적
-        e.x += dx/dist * e.speed * delta;
-        e.y += dy/dist * e.speed * delta;
+      if (e.dashTimer <= 0) {
+        e.dashState = "warn";
+        e.dashTimer = 180;
+        e.dashTargetX = player.x;
+        e.dashTargetY = player.y;
       }
 
-      else if (e.dashState === "warn") {
+      e.x += dx/dist * e.speed * delta;
+      e.y += dy/dist * e.speed * delta;
+    }
 
-        e.dashTimer -= delta;
+    else if (e.dashState === "warn") {
 
-        // 멈춤 (긴장감)
-        if (e.dashTimer <= 0) {
-          e.dashState = "dash";
-        }
+      e.dashTimer -= delta;
+
+      if (e.dashTimer <= 0) {
+        e.dashState = "dash";
       }
+    }
 
-      else if (e.dashState === "dash") {
+    else if (e.dashState === "dash") {
 
-        let dx2 = e.dashTargetX - e.x;
-        let dy2 = e.dashTargetY - e.y;
-        let dist2 = Math.hypot(dx2, dy2);
+      let dx2 = e.dashTargetX - e.x;
+      let dy2 = e.dashTargetY - e.y;
+      let dist2 = Math.hypot(dx2, dy2);
 
-        if (dist2 < 5) {
-          e.dashState = "idle";
-          e.dashTimer = 120;
-        } else {
-          e.x += dx2/dist2 * 12 * delta;
-          e.y += dy2/dist2 * 12 * delta;
-        }
+      if (dist2 < 5) {
+        e.dashState = "idle";
+        e.dashTimer = 120;
+      } else {
+        e.x += dx2/dist2 * 12 * delta;
+        e.y += dy2/dist2 * 12 * delta;
       }
-
-    } else {
-      // 일반 적
-// 일반 적 (플레이어 추적)
-e.x += (dx / dist) * e.speed * delta;
-e.y += (dy / dist) * e.speed * delta;
-
-    // 🔥 충돌 처리
-   let hitRange = 20 * SCALE;
-if (e.type === "boss") hitRange = 30 * SCALE;
-if (erenMode && titanMode) hitRange = (40 * 2.5) / 2 * SCALE;
-
-    	if (dist < hitRange) {
-
-  // 🔥 리바이 무적
-  if (invincible) return;
-
-  // 🔥 에렌 거인 상태
-  if (erenMode && titanMode) {
-    spawnSmokeEffect(e.x, e.y);
-    enemies = enemies.filter(en => en !== e);
-    return;
+    }
   }
 
-  // 🔥 핑거 거인 상태 ⭐ 여기 추가
-  if (fingerMode && fingerTitanMode) {
-    spawnSmokeEffect(e.x, e.y);
-    enemies = enemies.filter(en => en !== e);
-    return;
+  else if (e.type === "female") {
+
+  // 🔥 공통 거리 계산 (맨 위에 있어도 OK)
+  let dx = player.x - e.x;
+  let dy = player.y - e.y;
+  let dist = Math.hypot(dx, dy);
+
+  // 1️⃣ 평소 이동
+  if (e.dashState === "idle") {
+
+    e.x += (dx / dist) * e.speed * delta;
+    e.y += (dy / dist) * e.speed * delta;
+
+    e.dashTimer -= delta;
+
+    if (e.dashTimer <= 0) {
+      e.dashState = "jump";
+
+      e.jumpTargetX = player.x;
+      e.jumpTargetY = player.y;
+
+      e.dashTimer = 40; // 공중 대기
+    }
   }
 
-  // 🔥 게임오버
-  if (gameOver) return;
-  gameOver = true;
+  // 2️⃣ 점프 (공중)
+  else if (e.dashState === "jump") {
 
-  const score = ((Date.now() - startTime - pausedTime) / 1000).toFixed(2);
+    e.dashTimer -= delta;
 
-  saveScoreToServer(score);
+    e.y -= 2 * delta; // 살짝 떠오르는 느낌
 
-  setTimeout(() => {
-    document.getElementById("finalScore").innerText = "생존: " + score + "초";
-document.getElementById("gameOverScreen").style.display = "flex";
-  }, 0);
+    if (e.dashTimer <= 0) {
+      e.dashState = "land";
+    }
+  }
 
-  return;
+  // 3️⃣ 착지 + 충격파
+  else if (e.dashState === "land") {
+
+    e.x = e.jumpTargetX;
+    e.y = e.jumpTargetY;
+
+    shockwaves.push({
+      x: e.x,
+      y: e.y,
+      radius: 10,
+      life: 20
+    });
+
+    e.dashState = "idle";
+    e.dashTimer = 120;
+  }
 }
-}
-  });
+
+  // 🔥 일반 적
+  else {
+
+    e.x += (dx / dist) * e.speed * delta;
+    e.y += (dy / dist) * e.speed * delta;
+
+    let hitRange = 20 * SCALE;
+    if (e.type === "boss") hitRange = 30 * SCALE;
+    if (erenMode && titanMode) hitRange = (40 * 2.5) / 2 * SCALE;
+
+    if (dist < hitRange) {
+
+      if (invincible) return;
+
+      if (erenMode && titanMode) {
+      spawnEaster(e);
+ spawnSmokeEffect(e.x, e.y);
+        enemies = enemies.filter(en => en !== e);
+        return;
+      }
+
+      if (fingerMode && fingerTitanMode) {
+ spawnEaster(e);   
+spawnSmokeEffect(e.x, e.y);
+        enemies = enemies.filter(en => en !== e);
+        return;
+      }
+
+      if (gameOver) return;
+      gameOver = true;
+
+      const score = ((Date.now() - startTime - pausedTime) / 1000).toFixed(2);
+
+      saveScoreToServer(score);
+
+      setTimeout(() => {
+        document.getElementById("finalScore").innerText = "생존: " + score + "초";
+        document.getElementById("gameOverScreen").style.display = "flex";
+      }, 0);
+
+      return;
+    }
+  }
+});
 if (fingerMode && fingerTitanMode) {
 
   const auraRange = 220;
@@ -1134,6 +1212,7 @@ if (fingerMode && fingerTitanMode) {
     const dist = Math.hypot(dx, dy);
 
     if (dist < auraRange){
+spawnEaster(e);
       spawnSmokeEffect(e.x, e.y);
       return false;
     }
@@ -1155,6 +1234,7 @@ fingerBullets.forEach((b, i) => {
     const dist = Math.hypot(dx, dy);
 
     if (dist < 20){
+spawnEaster(e);
       spawnSmokeEffect(e.x, e.y);
       return false;
     }
@@ -1295,6 +1375,15 @@ function spawnSmokeEffect(x, y){
 
   setTimeout(() => smoke.remove(), 500);
 }
+function spawnEaster(e){
+  if (e.type === "female") {
+    easterObjects.push({
+      x: e.x,
+      y: e.y,
+      size: 60
+    });
+  }
+}
 function drawLightning(x, y){
   ctx.strokeStyle = "white";
   ctx.lineWidth = 3;
@@ -1365,8 +1454,14 @@ if (wireActive) {
   // 적
   enemies.forEach(e => {
 
-    const img = e.type === "boss" ? bossImg : enemyImg;
-    const size = e.type === "boss" ? 100 : 40;
+    let img = enemyImg;
+
+if (e.type === "boss") img = bossImg;
+if (e.type === "female") img = femaleTitanImg;
+    let size = 40;
+
+if (e.type === "boss") size = 100;
+if (e.type === "female") size = 100; // ⭐ 이거 추가
 
     ctx.drawImage(
       img,
@@ -1375,7 +1470,23 @@ if (wireActive) {
       size,
       size
     );
+if (e.type === "female" && e.dashState === "jump") {
 
+    ctx.strokeStyle = "red";
+    ctx.lineWidth = 3;
+
+    ctx.beginPath();
+    ctx.arc(e.jumpTargetX, e.jumpTargetY, 40, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 깜빡 효과
+    if (Math.floor(Date.now()/100) % 2 === 0) {
+      ctx.fillStyle = "rgba(255,0,0,0.2)";
+      ctx.beginPath();
+      ctx.arc(e.jumpTargetX, e.jumpTargetY, 40, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
     // 보스 경고
     if (e.type === "boss" && e.dashState === "warn") {
 
@@ -1395,7 +1506,18 @@ if (wireActive) {
       ctx.fillText(seconds, e.x, e.y - 40);
     }
   });
+// 🔥 이스터에그 오브젝트
+easterObjects.forEach(o => {
 
+  ctx.drawImage(
+    easterImg,
+    o.x - o.size/2,
+    o.y - o.size/2,
+    o.size,
+    o.size
+  );
+
+});
   // 🔥 리바이 이펙트
   slashEffects.forEach((s, i) => {
 
@@ -1415,6 +1537,62 @@ if (wireActive) {
 
   if (s.life <= 0) {
     slashEffects.splice(i, 1);
+  }
+});
+// 🔥 ⭐⭐⭐ 여기부터 추가
+shockwaves.forEach((s, i) => {
+
+  ctx.beginPath();
+  ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+
+  ctx.strokeStyle = "rgba(255,255,255," + (s.life/20) + ")";
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  s.radius += 6;
+  s.life--;
+
+  // 🔥 플레이어 충돌
+  const dx = player.x - s.x;
+  const dy = player.y - s.y;
+  const dist = Math.hypot(dx, dy);
+
+ if (dist < s.radius && !invincible) {
+
+  if (gameOver) return;
+
+  gameOver = true;
+
+  const score = ((Date.now() - startTime - pausedTime) / 1000).toFixed(2);
+
+  saveScoreToServer(score);
+
+  setTimeout(() => {
+    document.getElementById("finalScore").innerText = "생존: " + score + "초";
+    document.getElementById("gameOverScreen").style.display = "flex";
+  }, 0);
+
+  return;
+}
+
+  if (s.life <= 0) {
+    shockwaves.splice(i, 1);
+  }
+});
+femaleEffects.forEach((f, i) => {
+
+  ctx.beginPath();
+  ctx.arc(f.x, f.y, f.radius, 0, Math.PI * 2);
+
+  ctx.strokeStyle = "rgba(255,255,255," + (f.life/20) + ")";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  f.radius += 4;
+  f.life--;
+
+  if (f.life <= 0) {
+    femaleEffects.splice(i, 1);
   }
 });
 fingerBullets.forEach(b => {
@@ -1622,6 +1800,7 @@ canvas.style.transform = "translate(" + (Math.random()*6-3) + "px," + (Math.rand
       const dist = Math.hypot(dx, dy);
 
       if (dist < 180 * SCALE) {
+spawnEaster(e);
         spawnSmokeEffect(e.x, e.y);
         return false;
       }
@@ -1794,7 +1973,7 @@ function restartGame(){
     fingerMode = false;
     playerImg.src = "player.png";
   }
-
+gameOver = false;
   lastTime = performance.now();
   requestAnimationFrame(loop);
 }
