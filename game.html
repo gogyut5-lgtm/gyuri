@@ -330,7 +330,10 @@ z-index:0;
 
 <!-- 기본 캐릭 -->
 <div class="charBox">
-  <img src="player.png" class="defaultChar" onclick="selectChar('default', this)">
+  <img src="player.png"
+     id="mikasaSelectImg"
+     class="defaultChar"
+     onclick="selectChar('default', this)">
   <div class="charName">미카사</div>
 </div>
 
@@ -420,6 +423,20 @@ z-index:0;
     <div class="skillState" id="fingerState">READY</div>
   </div>
 </div>
+<!-- 각성 미카사 -->
+<div id="mikasaUI" class="skillSet">
+  <div class="skillCard">
+    <div class="skillName">⚔️ Q - 아커만 각성참</div>
+
+    <div class="bar">
+      <div id="mikasaDurationFill" class="fill duration"></div>
+      <div id="mikasaCooldownFill" class="fill cooldown"></div>
+    </div>
+
+    <div class="skillState" id="mikasaState">READY</div>
+  </div>
+</div>
+
 <div id="dashUI" class="skillSet show">
   <div class="skillCard">
     <div class="skillName">⚡ SHIFT - 입체기동</div>
@@ -473,6 +490,8 @@ const fingerImg = new Image();
 fingerImg.src = "finger.png";
 const fingerTitanImg = new Image();
 fingerTitanImg.src = "finger_titan.png"; // ← 새 이미지
+const mikasaSkillImg = new Image();
+mikasaSkillImg.src = "mikasa_skill.png";
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -488,6 +507,8 @@ let secretEn = "rncnrgownak";
 let secretKr = "구축해주마";
 let secretLeviEn = "dlsfbchlrkd";
 let secretLeviKr = "인류최강";
+let secretMikasaKr = "에미새";
+let secretMikasaEn = "dpalto";	
 let leviMode = false;
 let slashEffects = [];
 let inputBuffer = "";
@@ -504,6 +525,12 @@ let lastBossPhase = -1;
 let leviCooldownStart = 0;
 let leviDurationStart = 0;
 let leviSkillActive = false;
+let mikasaAwaken = false;
+let ackermanSlashActive = false;
+let mikasaCooldown = false;
+let mikasaCooldownTime = 0;
+let mikasaDurationTime = 0;
+let screenFlash = 0;
 let invincible = false;
 let fingerMode = false;
 let secretFingerEn = "akfpwjstk";
@@ -525,6 +552,7 @@ let easterObjects = [];
 let wireActive = false;
 let wireTarget = {x:0, y:0};
 let wireSpeed = 25;
+let awakenedMikasa = false;
 let selectedCharacter = "default";
 let unlocked = {
   eren: false,
@@ -582,6 +610,7 @@ if (type === "eren"){
   document.getElementById("erenUI").classList.add("show");
   document.getElementById("leviUI").classList.remove("show");
 document.getElementById("fingerUI").classList.remove("show");
+document.getElementById("mikasaUI").classList.remove("show");
 }
 else if (type === "levi"){
   leviMode = true;
@@ -592,6 +621,7 @@ fingerMode = false;
   document.getElementById("leviUI").classList.add("show");
   document.getElementById("erenUI").classList.remove("show");
 document.getElementById("fingerUI").classList.remove("show");
+document.getElementById("mikasaUI").classList.remove("show");
 }
 else if (type === "finger"){
   fingerMode = true;
@@ -603,17 +633,31 @@ else if (type === "finger"){
   document.getElementById("erenUI").classList.remove("show");
 document.getElementById("leviUI").classList.remove("show");
 document.getElementById("fingerUI").classList.add("show");
+document.getElementById("mikasaUI").classList.remove("show");
 }
 else {
+
   erenMode = false;
   leviMode = false;
-  fingerMode = false; 
-  playerImg.src = "player.png";
+  fingerMode = false;
+
+  // 🔥 각성 여부 체크
+  if (mikasaAwaken){
+    playerImg.src = "mikasa_awaken.png";
+  } else {
+    playerImg.src = "player.png";
+  }
 
   document.getElementById("erenUI").classList.remove("show");
   document.getElementById("leviUI").classList.remove("show");
-  document.getElementById("fingerUI").classList.remove("show"); // ⭐ 추가
+  document.getElementById("fingerUI").classList.remove("show");
+if (mikasaAwaken){
+    document.getElementById("mikasaUI").classList.add("show");
+  } else {
+    document.getElementById("mikasaUI").classList.remove("show");
+  }
 }
+
 
   lastTime = performance.now();
   requestAnimationFrame(loop);
@@ -645,6 +689,9 @@ document.addEventListener("keydown", e => {
 else if (fingerMode) {
   if (fingerCooldown) return;
   activateFingerTitan();
+}
+else if (mikasaAwaken) {
+  activateAckermanSlash();
 }
   return;
 }
@@ -696,25 +743,46 @@ else if (
   showUnlockEffect("🖐️ 핑크핑거 해금!");
 }
 else if (
+  inputBuffer.includes(secretMikasaKr) ||
+  inputBuffer.includes(secretMikasaEn)
+) {
+
+  activateAwakenedMikasa();
+
+  inputBuffer = "";
+}
+else if (
   inputBuffer.includes("규태야사랑해") ||
   inputBuffer.includes("rbxoditkfkdgo")
 ) {
 
+  // 🔥 전체 캐릭 해금
   unlocked.eren = true;
   unlocked.levi = true;
   unlocked.finger = true;
 
+  // 🔥 각성 미카사 포함
+  mikasaAwaken = true;
+
+  // 버튼 활성화
   document.getElementById("erenBtn").style.opacity = "1";
   document.getElementById("leviBtn").style.opacity = "1";
   document.getElementById("fingerBtn").style.opacity = "1";
 
+  // 자물쇠 제거
   document.getElementById("erenLock").classList.add("hide");
   document.getElementById("leviLock").classList.add("hide");
   document.getElementById("fingerLock").classList.add("hide");
 
+  // 🔥 미카사 이미지 변경
+  playerImg.src = "mikasa_awaken.png";
+
+  document.getElementById("mikasaSelectImg").src =
+    "mikasa_awaken.png";
+
   showUnlockEffect("🔥 전 캐릭터 해금!");
 
-  inputBuffer = ""; // ⭐ 꼭 넣어 (중복 방지)
+  inputBuffer = "";
 }
 // 🔥 Shift 입체기동
 if (e.key === "Shift") {
@@ -868,7 +936,53 @@ if (dashCooldown) {
   dState.innerText = "READY";
   dState.style.color = "#ffffff";
 }
+// 🔥 각성 미카사 UI
+const mcd = document.getElementById("mikasaCooldownFill");
+const mdur = document.getElementById("mikasaDurationFill");
+const mstate = document.getElementById("mikasaState");
 
+if (mikasaAwaken) {
+
+  // 쿨타임
+  if (mikasaCooldown){
+
+    const total = 40000;
+    const remain =
+      Math.max(0, total - (Date.now() - mikasaCooldownTime));
+
+    mcd.style.width =
+      (remain / total) * 100 + "%";
+
+    mstate.innerText = "쿨타임";
+    mstate.style.color = "#ff5555";
+
+  } else {
+    mcd.style.width = "0%";
+  }
+
+  // 지속시간
+  if (ackermanSlashActive){
+
+    const total = 3500;
+    const remain =
+      Math.max(0, total - (Date.now() - mikasaDurationTime));
+
+    mdur.style.width =
+      (remain / total) * 100 + "%";
+
+    mstate.innerText = "ACTIVE";
+    mstate.style.color = "#00ffcc";
+
+  } else {
+
+    mdur.style.width = "0%";
+
+    if (!mikasaCooldown){
+      mstate.innerText = "READY";
+      mstate.style.color = "#ffffff";
+    }
+  }
+}
 }
 function pauseGameTime() {
   if (!isPaused) {
@@ -1618,6 +1732,46 @@ fingerBullets.forEach(b => {
   ctx.restore();
 
 });
+if (screenFlash > 0){
+
+  // 흰 플래시
+  ctx.fillStyle =
+    "rgba(255,255,255," + (screenFlash/12) + ")";
+
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // 붉은 칼집 여러 개
+  for(let i=0;i<35;i++){
+
+    const colors = [
+  "255,0,0",
+  "255,255,255",
+  "180,0,0"
+];
+
+const c = colors[Math.floor(Math.random()*colors.length)];
+
+ctx.strokeStyle =
+  "rgba(" + c + "," + (Math.random()*0.8+0.2) + ")";
+
+    ctx.lineWidth = 4 + Math.random()*10;
+
+    ctx.beginPath();
+
+    const x1 = Math.random()*canvas.width;
+    const y1 = Math.random()*canvas.height;
+
+    const x2 = Math.random()*canvas.width;
+    const y2 = Math.random()*canvas.height;
+
+    ctx.moveTo(x1,y1);
+    ctx.lineTo(x2,y2);
+
+    ctx.stroke();
+  }
+
+  screenFlash--;
+}
 }
 function activateHiddenMode(){
   if (hiddenMode) return;
@@ -1905,6 +2059,20 @@ easterObjects = [];
   leviSkillActive = false;
   invincible = false;
 
+// 🔥 각성 미카사 초기화
+ackermanSlashActive = false;
+mikasaCooldown = false;
+
+mikasaCooldownTime = 0;
+mikasaDurationTime = 0;
+
+screenFlash = 0;
+
+// 이미지 원복
+if (mikasaAwaken){
+  playerImg.src = "mikasa_awaken.png";
+}
+
   // ⭐⭐⭐ 핑거 추가 ⭐⭐⭐
   fingerTitanMode = false;
   fingerCooldown = false;
@@ -1950,6 +2118,7 @@ function restartGame(){
   document.getElementById("erenUI").classList.remove("show");
   document.getElementById("leviUI").classList.remove("show");
   document.getElementById("fingerUI").classList.remove("show");
+document.getElementById("mikasaUI").classList.remove("show");
 
   // 캐릭 유지
   if (selectedCharacter === "eren"){
@@ -1968,11 +2137,23 @@ function restartGame(){
     document.getElementById("fingerUI").classList.add("show");
   }
   else {
-    erenMode = false;
-    leviMode = false;
-    fingerMode = false;
+
+  erenMode = false;
+  leviMode = false;
+  fingerMode = false;
+
+  // 🔥 각성 미카사 유지
+  if (mikasaAwaken){
+    playerImg.src = "mikasa_awaken.png";
+  } else {
     playerImg.src = "player.png";
   }
+if (mikasaAwaken){
+    document.getElementById("mikasaUI").classList.add("show");
+  } else {
+    document.getElementById("mikasaUI").classList.remove("show");
+  }
+}
 gameOver = false;
   lastTime = performance.now();
   requestAnimationFrame(loop);
@@ -2048,6 +2229,83 @@ function fireFingerCannons(){
 });
 
   }
+}
+function activateAwakenedMikasa(){
+
+  mikasaAwaken = true;
+
+  showUnlockEffect("⚔️ 미카사 각성");
+
+  // 플레이어 강화
+  if (player){
+    player.speed = 4;
+  }
+
+  // 실제 플레이 이미지 변경
+  playerImg.src = "mikasa_awaken.png";
+
+  // 🔥 캐릭 선택창 이미지 변경
+  document.getElementById("mikasaSelectImg").src =
+    "mikasa_awaken.png";
+
+}
+
+function activateAckermanSlash(){
+
+  if (ackermanSlashActive || mikasaCooldown) return;
+
+mikasaCooldown = true;
+mikasaCooldownTime = Date.now();
+mikasaDurationTime = Date.now();
+
+  ackermanSlashActive = true;
+
+  // 🔥 스킬 이미지
+  playerImg.src = mikasaSkillImg.src;
+
+  invincible = true;
+
+  enemies.forEach(e=>{
+    e.savedSpeed = e.speed;
+    e.speed = 0;
+  });
+
+  const slashInterval = setInterval(()=>{
+
+    screenFlash = 4;
+
+    canvas.style.transform =
+      "translate("+(Math.random()*18-9)+"px,"+
+      (Math.random()*18-9)+"px)";
+
+    setTimeout(()=>{
+      canvas.style.transform = "";
+    },60);
+
+  },80);
+
+  setTimeout(()=>{
+    clearInterval(slashInterval);
+  },3000);
+
+  setTimeout(()=>{
+
+    enemies.forEach(e=>{
+      spawnSmokeEffect(e.x,e.y);
+    });
+
+    enemies = [];
+
+    invincible = false;
+    ackermanSlashActive = false;
+
+    // 🔥 원래 복귀
+    playerImg.src = "mikasa_awaken.png";
+
+  },3500);
+setTimeout(()=>{
+  mikasaCooldown = false;
+},40000);
 }
 </script>
 
