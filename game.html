@@ -1271,15 +1271,28 @@ if (Date.now() - dashCooldownTime > 400) {
   }
 }
 
-  // 🔥 일반 적
-  else {
+ // 🔥 일반 적
+else {
 
+  // ⭐ 각성참 중이면 일정 거리에서 멈춤
+  if (ackermanSlashActive) {
+
+    const freezeRange = 220;
+
+    // 너무 가까우면 정지
+    if (dist > freezeRange) {
+      e.x += (dx / dist) * e.speed * delta;
+      e.y += (dy / dist) * e.speed * delta;
+    }
+
+  } else {
+
+    // 평소 이동
     e.x += (dx / dist) * e.speed * delta;
     e.y += (dy / dist) * e.speed * delta;
+  }
 
-    let hitRange = 20 * SCALE;
-    if (e.type === "boss") hitRange = 30 * SCALE;
-    if (erenMode && titanMode) hitRange = (40 * 2.5) / 2 * SCALE;
+  let hitRange = 20 * SCALE;
 
     if (dist < hitRange) {
 
@@ -1317,7 +1330,7 @@ spawnSmokeEffect(e.x, e.y);
 });
 if (fingerMode && fingerTitanMode) {
 
-  const auraRange = 220;
+  const auraRange = 240;
 
   enemies = enemies.filter(e => {
 
