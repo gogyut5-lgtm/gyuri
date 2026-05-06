@@ -2291,7 +2291,8 @@ mikasaDurationTime = Date.now();
   setTimeout(()=>{
 
     enemies.forEach(e=>{
-      spawnSmokeEffect(e.x,e.y);
+spawnEaster(e);      
+spawnSmokeEffect(e.x,e.y);
     });
 
     enemies = [];
