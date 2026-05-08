@@ -1318,7 +1318,7 @@ if (wireActive) {
   }
 
   else if (e.type === "female") {
-
+if (ackermanSlashActive) return;
   // 🔥 공통 거리 계산 (맨 위에 있어도 OK)
   let dx = player.x - e.x;
   let dy = player.y - e.y;
