@@ -305,6 +305,31 @@ z-index:0;
   font-size:14px;
   font-weight:bold;
 }
+#rankTabs{
+  display:flex;
+  gap:8px;
+  margin-bottom:12px;
+}
+
+.rankTab{
+  flex:1;
+  border:none;
+  border-radius:10px;
+  padding:8px;
+
+  cursor:pointer;
+
+  background:rgba(0,0,0,0.12);
+  color:#222;
+
+  font-weight:bold;
+  font-size:14px;
+}
+.activeTab{
+  background:rgba(255,255,255,0.75);
+  color:#111;
+  box-shadow:0 2px 8px rgba(0,0,0,0.15);
+}
 </style>
 </head>
 
@@ -315,10 +340,27 @@ z-index:0;
 <button onclick="goBack()">⬅ 뒤로가기</button>
 
 <div id="wrap">
+
   <div id="rankingBox">
-  <h3>🏆 TOP 10</h3>
-  <div id="rankingList"></div>
-</div>
+
+    <div id="rankTabs">
+
+      <button id="timeTab"
+              class="rankTab activeTab">
+        ⏱️ 생존
+      </button>
+
+      <button id="killTab"
+              class="rankTab">
+        💀 킬
+      </button>
+
+    </div>
+
+    <div id="rankingList"></div>
+
+  </div>
+
   <div id="gameArea">
 
   <canvas id="gameCanvas" width="720" height="480"></canvas>
@@ -369,7 +411,10 @@ z-index:0;
 <button onclick="openCharSelect()">🎭 캐릭터 선택</button>
     </div>
   </div>
- <div id="ui" class="gameUI">Time: 0</div>
+ <div id="ui" class="gameUI">
+  <div id="timeText">Time: 0</div>
+  <div id="killText">Kills: 0</div>
+</div>
 
 <div id="countdown" style="
   font-size:30px;
@@ -498,6 +543,8 @@ const ctx = canvas.getContext("2d");
 const rect = canvas.getBoundingClientRect();
 
 let player, enemies, startTime, gameOver;
+let killCount = 0;
+let currentRankType = "time";
 let pausedTime = 0;
 let hiddenStart = 0;
 let isPaused = false;
@@ -511,6 +558,7 @@ let secretMikasaKr = "에미새";
 let secretMikasaEn = "dpalto";	
 let leviMode = false;
 let slashEffects = [];
+let dashSlashes = [];
 let inputBuffer = "";
 let hiddenMode = false;
 let titanMode = false;
@@ -1090,6 +1138,8 @@ function spawnBoss(){
     y: 0,
     speed: 1.2,
     type: "boss",
+hp: 5,
+maxHp: 5,
     dashState: "idle",
     dashTimer: 60,
     dashTargetX: 0,
@@ -1102,7 +1152,8 @@ function spawnFemaleTitan(){
     y: -50,
     speed: 1.5,
     type: "female",
-
+hp: 7,
+maxHp: 7,
     dashState: "idle",
     dashTimer: 120,
 
@@ -1121,44 +1172,94 @@ function update(delta){
   if(keys["arrowright"] || keys["d"]) player.x += player.speed * delta;
 
 // 🔥 입체기동 (와이어 이동)
+// 🔥 입체기동 (와이어 이동)
 if (wireActive) {
 
   let dx = wireTarget.x - player.x;
   let dy = wireTarget.y - player.y;
   let dist = Math.hypot(dx, dy);
 
+  // 도착
   if (dist < 10) {
+
     player.x = wireTarget.x;
     player.y = wireTarget.y;
 
     wireActive = false;
- setTimeout(() => {
-    invincible = false;
-  }, 400); // 0.4초 (원하면 300~600 조절)
 
-  return;
-}
- // 이동 먼저
-let vx = (dx / dist) * wireSpeed * delta;
-let vy = (dy / dist) * wireSpeed * delta;
+    // ⚔️ 회전 칼집 생성
+    for (let i = 0; i < 6; i++) {
 
-player.x += vx;
-player.y += vy;
+      dashSlashes.push({
+        x: player.x,
+        y: player.y,
+        angle: (Math.PI * 2 / 6) * i,
+        radius: 24 + Math.random() * 10,
+        life: 12
+      });
+    }
 
-// 🔥 벽 튕김
-if (player.x <= 0 || player.x >= canvas.width) {
-  wireTarget.x = player.x - dx; // 방향 반전
-}
+    // 📳 화면 흔들림
+    canvas.style.transform =
+      "translate(" + (Math.random()*5-2.5) + "px," +
+      (Math.random()*5-2.5) + "px)";
 
-if (player.y <= 0 || player.y >= canvas.height) {
-  wireTarget.y = player.y - dy;
-}
+    setTimeout(()=>{
+      canvas.style.transform = "";
+    }, 40);
 
-// 🔥 너무 오래 지속 방지 (중요)
-if (Date.now() - dashCooldownTime > 400) {
-  wireActive = false;
-  invincible = false;
-}
+    // ⚔️ 착지 주변 적 제거
+    enemies = enemies.filter(e => {
+
+      const ex = player.x - e.x;
+      const ey = player.y - e.y;
+      const edist = Math.hypot(ex, ey);
+
+      if (edist < 85) {
+
+        damageEnemy(e, 1);
+
+        // 보스는 체력만 감소
+        if (e.type === "boss" || e.type === "female") {
+          return true;
+        }
+
+        return false;
+      }
+
+      return true;
+    });
+
+    // 🔥 착지 후 짧은 무적
+    setTimeout(() => {
+      invincible = false;
+    }, 400);
+  }
+
+  // 🔥 이동
+  else {
+
+    let vx = (dx / dist) * wireSpeed * delta;
+    let vy = (dy / dist) * wireSpeed * delta;
+
+    player.x += vx;
+    player.y += vy;
+
+    // 벽 튕김
+    if (player.x <= 0 || player.x >= canvas.width) {
+      wireTarget.x = player.x - dx;
+    }
+
+    if (player.y <= 0 || player.y >= canvas.height) {
+      wireTarget.y = player.y - dy;
+    }
+
+    // 너무 오래 지속 방지
+    if (Date.now() - dashCooldownTime > 400) {
+      wireActive = false;
+      invincible = false;
+    }
+  }
 }
   // 맵 밖 제한
   if (player.x < 0) player.x = 0;
@@ -1292,41 +1393,51 @@ else {
     e.y += (dy / dist) * e.speed * delta;
   }
 
+  }
+
+  // 🔥 공통 충돌 판정
   let hitRange = 20 * SCALE;
 
-    if (dist < hitRange) {
+  if (dist < hitRange) {
 
-      if (invincible) return;
+    if (invincible) return;
 
-      if (erenMode && titanMode) {
-      spawnEaster(e);
- spawnSmokeEffect(e.x, e.y);
-        enemies = enemies.filter(en => en !== e);
-        return;
-      }
+    // 🔥 에렌 거인화
+    if (erenMode && titanMode) {
 
-      if (fingerMode && fingerTitanMode) {
- spawnEaster(e);   
-spawnSmokeEffect(e.x, e.y);
-        enemies = enemies.filter(en => en !== e);
-        return;
-      }
-
-      if (gameOver) return;
-      gameOver = true;
-
-      const score = ((Date.now() - startTime - pausedTime) / 1000).toFixed(2);
-
-      saveScoreToServer(score);
-
-      setTimeout(() => {
-        document.getElementById("finalScore").innerText = "생존: " + score + "초";
-        document.getElementById("gameOverScreen").style.display = "flex";
-      }, 0);
-
+      damageEnemy(e, 3);
       return;
     }
+
+    // 🔥 핑거 거인화
+    if (fingerMode && fingerTitanMode) {
+
+      damageEnemy(e, 3);
+      return;
+    }
+
+    // 💀 사망
+    if (gameOver) return;
+
+    gameOver = true;
+
+    const score =
+      ((Date.now() - startTime - pausedTime) / 1000)
+      .toFixed(2);
+
+    saveScoreToServer(score);
+saveKillToServer(killCount);
+    setTimeout(() => {
+      document.getElementById("finalScore").innerText =
+        "생존: " + score + "초";
+
+      document.getElementById("gameOverScreen").style.display =
+        "flex";
+    }, 0);
+
+    return;
   }
+
 });
 if (fingerMode && fingerTitanMode) {
 
@@ -1389,8 +1500,12 @@ if (dashCooldown) {
 }	
   // UI 업데이트
   if(!gameOver){
-    document.getElementById("ui").innerText =
-      "Time: "+((Date.now() - startTime - pausedTime)/1000).toFixed(1);
+    document.getElementById("timeText").innerText =
+  "Time: " +
+  ((Date.now() - startTime - pausedTime)/1000).toFixed(1);
+
+document.getElementById("killText").innerText =
+  "Kills: " + killCount;
   }
 }
 function updateCountdown(){
@@ -1511,6 +1626,42 @@ function spawnEaster(e){
     });
   }
 }
+function damageEnemy(e, damage){
+
+  // 🔥 갑옷거인 / 여성형 HP 적용
+  if (e.type === "boss" || e.type === "female") {
+
+    e.hp -= damage;
+
+    // 피격 흔들림
+    canvas.style.transform =
+      "translate(" + (Math.random()*4-2) + "px," +
+      (Math.random()*4-2) + "px)";
+
+    setTimeout(()=>{
+      canvas.style.transform = "";
+    }, 30);
+
+    // 사망
+    if (e.hp <= 0) {
+killCount++;
+
+      spawnEaster(e);
+      spawnSmokeEffect(e.x, e.y);
+
+      enemies = enemies.filter(en => en !== e);
+    }
+
+    return;
+  }
+
+  // 일반 적 즉사
+killCount++;
+  spawnEaster(e);
+  spawnSmokeEffect(e.x, e.y);
+
+  enemies = enemies.filter(en => en !== e);
+}
 function drawLightning(x, y){
   ctx.strokeStyle = "white";
   ctx.lineWidth = 3;
@@ -1534,16 +1685,34 @@ function drawLightning(x, y){
 
 
 function draw(){
-if (isSelecting) {
+
+  // 🎭 캐릭 선택중
+  if (isSelecting) {
+
     ctx.fillStyle = "#C2B280";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
     return;
   }
- if (!player) {
-    ctx.drawImage(startImg, 0, 0, canvas.width, canvas.height);
+
+  // 🎬 시작 화면
+  if (!player) {
+
+    ctx.drawImage(
+      startImg,
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
     return;
-  }
-  ctx.fillStyle = "#C2B280";
+  }  ctx.fillStyle = "#C2B280";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // 번개
@@ -1608,6 +1777,48 @@ if (e.type === "female") size = 100; // ⭐ 이거 추가
       size,
       size
     );
+
+// ❤️ 보스 체력바
+if (e.type === "boss" || e.type === "female") {
+
+  const barWidth = 80;
+  const barHeight = 8;
+
+  const hpRatio = e.hp / e.maxHp;
+
+  // 배경
+  ctx.fillStyle = "rgba(0,0,0,0.6)";
+  ctx.fillRect(
+    e.x - barWidth/2,
+    e.y - 70,
+    barWidth,
+    barHeight
+  );
+
+  // 체력
+  ctx.fillStyle =
+    e.type === "boss"
+      ? "#ffb300"
+      : "#ff4d88";
+
+  ctx.fillRect(
+    e.x - barWidth/2,
+    e.y - 70,
+    barWidth * hpRatio,
+    barHeight
+  );
+
+  // 테두리
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = 1;
+
+  ctx.strokeRect(
+    e.x - barWidth/2,
+    e.y - 70,
+    barWidth,
+    barHeight
+  );
+}
 if (e.type === "female" && e.dashState === "jump") {
 
     ctx.strokeStyle = "red";
@@ -1666,6 +1877,59 @@ if (e.type === "female" && e.dashState === "jump") {
     slashEffects.splice(i, 1);
   }
 });
+// ⚔️ 입체기동 착지 회전베기
+dashSlashes.forEach((s, i) => {
+
+  ctx.save();
+
+  ctx.translate(s.x, s.y);
+  ctx.rotate(s.angle);
+
+  // 메인 칼집
+  ctx.strokeStyle =
+    "rgba(255,255,255," + (s.life / 12) + ")";
+
+  ctx.lineWidth = 5;
+
+  ctx.beginPath();
+
+  ctx.arc(
+    0,
+    0,
+    s.radius,
+    -0.8,
+    0.8
+  );
+
+  ctx.stroke();
+
+  // 내부 푸른 잔광
+  ctx.strokeStyle =
+    "rgba(180,220,255," + (s.life / 18) + ")";
+
+  ctx.lineWidth = 2;
+
+  ctx.beginPath();
+
+  ctx.arc(
+    0,
+    0,
+    s.radius - 6,
+    -0.8,
+    0.8
+  );
+
+  ctx.stroke();
+
+  ctx.restore();
+
+  s.radius += 1.5;
+  s.life--;
+
+  if (s.life <= 0) {
+    dashSlashes.splice(i, 1);
+  }
+});
 // 🔥 ⭐⭐⭐ 여기부터 추가
 shockwaves.forEach((s, i) => {
 
@@ -1693,7 +1957,7 @@ shockwaves.forEach((s, i) => {
   const score = ((Date.now() - startTime - pausedTime) / 1000).toFixed(2);
 
   saveScoreToServer(score);
-
+saveKillToServer(killCount);
   setTimeout(() => {
     document.getElementById("finalScore").innerText = "생존: " + score + "초";
     document.getElementById("gameOverScreen").style.display = "flex";
@@ -2060,6 +2324,7 @@ easterObjects = [];
   isPaused = false;
 
   gameOver = false;
+killCount = 0;
   lastBossPhase = -1;
 
   // 에렌
@@ -2099,7 +2364,8 @@ dashCooldownTime = 0;
 wireActive = false;
 wireTarget = {x:0, y:0};
 
-  document.getElementById("ui").innerText = "Time: 0";
+  document.getElementById("timeText").innerText = "Time: 0";
+document.getElementById("killText").innerText = "Kills: 0";
 }
 function fireFingerMachineGun(){
 
@@ -2345,63 +2611,189 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const rankingRef = collection(db, "ranking");
 
-// 저장
+const rankingRef = collection(db, "ranking");
+const killRankingRef = collection(db, "killRanking");
+
+
+// ⏱️ 생존 랭킹 저장
 window.saveScoreToServer = async (score) => {
-  const q = query(rankingRef, orderBy("score","desc"), limit(10));
+
+  const q = query(
+    rankingRef,
+    orderBy("score","desc"),
+    limit(10)
+  );
+
   const snapshot = await getDocs(q);
 
   let isTop10 = false;
 
-  if (snapshot.size < 10) isTop10 = true;
-  else {
-    const last = snapshot.docs[snapshot.docs.length - 1].data().score;
-    if (Number(score) > last) isTop10 = true;
+  if (snapshot.size < 10) {
+
+    isTop10 = true;
+
+  } else {
+
+    const last =
+      snapshot.docs[snapshot.docs.length - 1]
+      .data().score;
+
+    if (Number(score) > last) {
+      isTop10 = true;
+    }
   }
 
-  if (!isTop10) {
-    return;
-  }
+  if (!isTop10) return;
 
-  const name = prompt("TOP10 진입! 이름 입력") || "익명";
+  const name =
+    prompt("🏆 생존 랭킹 등록! 이름 입력");
+
+  if (!name) return;
 
   await addDoc(rankingRef, {
     name,
     score: Number(score),
     time: Date.now()
   });
-  alert("🏆 랭킹 등록 완료!");
+
+  loadRanking();
 };
 
-// 불러오기
-function loadRanking(){
-  const q = query(rankingRef, orderBy("score","desc"), limit(10));
 
-  onSnapshot(q, (snapshot)=>{
-    const list = document.getElementById("rankingList");
-    list.innerHTML = "";
+// 💀 킬 랭킹 저장
+window.saveKillToServer = async (kills) => {
 
-    let i = 1;
+  const q = query(
+    killRankingRef,
+    orderBy("kills","desc"),
+    limit(10)
+  );
 
-    snapshot.forEach(doc=>{
-      const d = doc.data();
+  const snapshot = await getDocs(q);
 
-      const item = document.createElement("div");
-      item.className = "rankItem";
+  let isTop10 = false;
 
-      item.innerHTML = `
-        <span class="rankName">${i}. ${d.name}</span>
-        <span class="rankScore">${d.score}초</span>
-      `;
+  if (snapshot.size < 10) {
 
-      list.appendChild(item);
-      i++;
-    });
+    isTop10 = true;
+
+  } else {
+
+    const last =
+      snapshot.docs[snapshot.docs.length - 1]
+      .data().kills;
+
+    if (kills > last) {
+      isTop10 = true;
+    }
+  }
+
+  if (!isTop10) return;
+
+  const name =
+    prompt("💀 킬 랭킹 등록! 이름 입력");
+
+  if (!name) return;
+
+  await addDoc(killRankingRef, {
+    name,
+    kills,
+    createdAt: Date.now()
+  });
+
+  loadRanking();
+};
+
+
+// 🔥 랭킹 불러오기
+async function loadRanking(){
+
+  const currentRef =
+    currentRankType === "time"
+      ? rankingRef
+      : killRankingRef;
+
+  const currentOrder =
+    currentRankType === "time"
+      ? "score"
+      : "kills";
+
+  const q = query(
+    currentRef,
+    orderBy(currentOrder, "desc"),
+    limit(10)
+  );
+
+  const snapshot = await getDocs(q);
+
+  const list =
+    document.getElementById("rankingList");
+
+  list.innerHTML = "";
+
+  let i = 1;
+
+  snapshot.forEach(doc=>{
+
+    const d = doc.data();
+
+    const item =
+      document.createElement("div");
+
+    item.className = "rankItem";
+
+    item.innerHTML = `
+      <span class="rankName">
+        ${i}. ${d.name}
+      </span>
+
+      <span class="rankScore">
+        ${
+          currentRankType === "time"
+            ? d.score + "초"
+            : d.kills + "킬"
+        }
+      </span>
+    `;
+
+    list.appendChild(item);
+
+    i++;
   });
 }
-loadRanking();
 
+
+// 🔥 탭 버튼
+const timeTab =
+  document.getElementById("timeTab");
+
+const killTab =
+  document.getElementById("killTab");
+
+timeTab.onclick = () => {
+
+  currentRankType = "time";
+
+  timeTab.classList.add("activeTab");
+  killTab.classList.remove("activeTab");
+
+  loadRanking();
+};
+
+killTab.onclick = () => {
+
+  currentRankType = "kill";
+
+  killTab.classList.add("activeTab");
+  timeTab.classList.remove("activeTab");
+
+  loadRanking();
+};
+
+
+// 첫 로드
+loadRanking();
 startImg.onload = () => {
   draw();
 };
