@@ -1945,7 +1945,7 @@ dashSlashes.forEach((s, i) => {
 });
 // 🔥 ⭐⭐⭐ 여기부터 추가
 shockwaves.forEach((s, i) => {
-
+if (invincible) return;
   ctx.beginPath();
   ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
 
