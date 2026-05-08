@@ -1453,7 +1453,7 @@ if (fingerMode && fingerTitanMode) {
 
   damageEnemy(e, 999);
 
-  if (e.type === "boss" || e.type === "female") {
+  if (e.hp > 0) {
     return true;
   }
 
@@ -1480,7 +1480,7 @@ fingerBullets.forEach((b, i) => {
 
   damageEnemy(e, 1);
 
-  if (e.type === "boss" || e.type === "female") {
+  if (e.hp > 0) {
     return true;
   }
 
@@ -2240,11 +2240,11 @@ canvas.style.transform = "translate(" + (Math.random()*6-3) + "px," + (Math.rand
       const dy = player.y - e.y;
       const dist = Math.hypot(dx, dy);
 
-     if (dist < 180 * SCALE) {
+    if (dist < 180 * SCALE) {
 
   damageEnemy(e, 999);
 
-  if (e.type === "boss" || e.type === "female") {
+  if (e.hp > 0) {
     return true;
   }
 
