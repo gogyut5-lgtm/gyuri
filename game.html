@@ -1637,7 +1637,7 @@ function spawnEaster(e){
   }
 }
 function damageEnemy(e, damage){
-
+if (e.dead) return;
   // 🔥 갑옷거인 / 여성형 HP 적용
   if (e.type === "boss" || e.type === "female") {
 
@@ -1653,8 +1653,10 @@ function damageEnemy(e, damage){
     }, 30);
 
     // 사망
-    if (e.hp <= 0) {
-killCount++;
+ if (e.hp <= 0) {
+
+  e.dead = true;
+  killCount++;
 
       spawnEaster(e);
       spawnSmokeEffect(e.x, e.y);
@@ -1666,6 +1668,7 @@ killCount++;
   }
 
   // 일반 적 즉사
+e.dead = true;
 killCount++;
   spawnEaster(e);
   spawnSmokeEffect(e.x, e.y);
