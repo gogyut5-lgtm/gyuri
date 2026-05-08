@@ -1449,11 +1449,16 @@ if (fingerMode && fingerTitanMode) {
     const dy = player.y - e.y;
     const dist = Math.hypot(dx, dy);
 
-    if (dist < auraRange){
-spawnEaster(e);
-      spawnSmokeEffect(e.x, e.y);
-      return false;
-    }
+   if (dist < auraRange){
+
+  damageEnemy(e, 999);
+
+  if (e.type === "boss" || e.type === "female") {
+    return true;
+  }
+
+  return false;
+}
 
     return true;
   });
@@ -1471,11 +1476,16 @@ fingerBullets.forEach((b, i) => {
     const dy = b.y - e.y;
     const dist = Math.hypot(dx, dy);
 
-    if (dist < 20){
-spawnEaster(e);
-      spawnSmokeEffect(e.x, e.y);
-      return false;
-    }
+  if (dist < 20){
+
+  damageEnemy(e, 1);
+
+  if (e.type === "boss" || e.type === "female") {
+    return true;
+  }
+
+  return false;
+}
     return true;
   });
 b.life--;
@@ -2230,11 +2240,16 @@ canvas.style.transform = "translate(" + (Math.random()*6-3) + "px," + (Math.rand
       const dy = player.y - e.y;
       const dist = Math.hypot(dx, dy);
 
-      if (dist < 180 * SCALE) {
-spawnEaster(e);
-        spawnSmokeEffect(e.x, e.y);
-        return false;
-      }
+     if (dist < 180 * SCALE) {
+
+  damageEnemy(e, 999);
+
+  if (e.type === "boss" || e.type === "female") {
+    return true;
+  }
+
+  return false;
+}
       return true;
     });
 
@@ -2569,12 +2584,11 @@ mikasaDurationTime = Date.now();
 
   setTimeout(()=>{
 
-    enemies.forEach(e=>{
-spawnEaster(e);      
-spawnSmokeEffect(e.x,e.y);
-    });
+   enemies.forEach(e=>{
+  damageEnemy(e, 999);
+});
 
-    enemies = [];
+enemies = [];
 
     invincible = false;
     ackermanSlashActive = false;
