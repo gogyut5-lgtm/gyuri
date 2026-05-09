@@ -399,6 +399,17 @@ z-index:0;
   <div class="charName">피크핑거</div>
   <div class="lock" id="fingerLock">🔒</div>
 </div>
+<!-- 아르민 -->
+<div class="charBox">
+  <img src="armin.png"
+     onclick="selectChar('armin', this)"
+     id="arminBtn"
+     style="opacity:0.5;">
+
+  <div class="charName">아르민</div>
+
+  <div class="lock" id="arminLock">🔒</div>
+</div>
  </div>
 
 </div>
@@ -481,7 +492,29 @@ z-index:0;
     <div class="skillState" id="mikasaState">READY</div>
   </div>
 </div>
+<!-- 아르민 -->
+<div id="arminUI" class="skillSet">
+  <div class="skillCard">
 
+    <div class="skillName">
+      ☢️ Q - 초대형 거인화
+    </div>
+
+    <div class="bar">
+      <div id="arminDurationFill"
+           class="fill duration"></div>
+
+      <div id="arminCooldownFill"
+           class="fill cooldown"></div>
+    </div>
+
+    <div class="skillState"
+         id="arminState">
+      READY
+    </div>
+
+  </div>
+</div>
 <div id="dashUI" class="skillSet show">
   <div class="skillCard">
     <div class="skillName">⚡ SHIFT - 입체기동</div>
@@ -535,6 +568,10 @@ const fingerImg = new Image();
 fingerImg.src = "finger.png";
 const fingerTitanImg = new Image();
 fingerTitanImg.src = "finger_titan.png"; // ← 새 이미지
+const arminImg = new Image();
+arminImg.src = "armin.png";
+const colossalImg = new Image();
+colossalImg.src = "colossal.png";
 const mikasaSkillImg = new Image();
 mikasaSkillImg.src = "mikasa_skill.png";
 
@@ -550,12 +587,16 @@ let hiddenStart = 0;
 let isPaused = false;
 let keys = {};
 let lastTime = 0;
+let loopId = null;
+let sessionId = 0;
 let secretEn = "rncnrgownak";
 let secretKr = "구축해주마";
 let secretLeviEn = "dlsfbchlrkd";
 let secretLeviKr = "인류최강";
 let secretMikasaKr = "에미새";
-let secretMikasaEn = "dpalto";	
+let secretMikasaEn = "dpalto";
+let secretArminKr = "징징이";
+let secretArminEn = "wldwlddl";	
 let leviMode = false;
 let slashEffects = [];
 let dashSlashes = [];
@@ -584,6 +625,12 @@ let fingerMode = false;
 let secretFingerEn = "akfpwjstk";
 let secretFingerKr = "마레전사";
 let fingerTitanMode = false;
+let colossalMode = false;
+let colossalTransforming = false;
+
+let colossalCooldown = false;
+let colossalCooldownTime = 0;
+let colossalDurationTime = 0;
 let fingerCooldown = false;
 let fingerCooldownTime = 0;
 let fingerDurationTime = 0;
@@ -596,6 +643,9 @@ let dashCooldownTime = 0;
 let dashDir = {x:0, y:0};
 let femaleEffects = [];
 let shockwaves = [];
+let colossalExplosion = 0;
+let mushroomClouds = [];
+
 let easterObjects = [];
 let wireActive = false;
 let wireTarget = {x:0, y:0};
@@ -605,7 +655,8 @@ let selectedCharacter = "default";
 let unlocked = {
   eren: false,
   levi: false,
-  finger: false
+  finger: false,
+  armin: false
 };
 let isSelecting = false;
 
@@ -613,11 +664,11 @@ document.getElementById("startBtn").onclick = startGame;
 
 function selectChar(type, el){
 
-fingerMode = false;
-erenMode = false;
-leviMode = false;
+  fingerMode = false;
+  erenMode = false;
+  leviMode = false;
 
-  // ⭐ 이거 추가 (잠금 체크)
+  // 🔒 잠금 체크
   if (type === "eren" && !unlocked.eren){
     alert("에렌은 아직 잠겨있다!");
     return;
@@ -627,90 +678,108 @@ leviMode = false;
     alert("리바이는 아직 잠겨있다!");
     return;
   }
-if (type === "finger" && !unlocked.finger){
-  alert("핑크핑거는 아직 잠겨있다!");
-  return;
-}
 
-  isSelecting = false; // ⭐ 추가
-  document.querySelectorAll("#charSelect img").forEach(img=>{
-    img.classList.remove("selected");
-  });
+  if (type === "finger" && !unlocked.finger){
+    alert("핑거는 아직 잠겨있다!");
+    return;
+  }
+
+  if (type === "armin" && !unlocked.armin){
+    alert("아르민은 아직 잠겨있다!");
+    return;
+  }
+
+  isSelecting = false;
+
+  document.querySelectorAll("#charSelect img")
+    .forEach(img=>{
+      img.classList.remove("selected");
+    });
+
   el.classList.add("selected");
 
   selectedCharacter = type;
 
-  // 선택 화면 닫기
-  document.getElementById("charScreen").style.display = "none";
-document.getElementById("skillBar").classList.add("show");
-  // 게임 UI 다시 보이기
-  document.getElementById("wrap").style.display = "flex";
+  document.getElementById("charScreen")
+    .style.display = "none";
 
-  // 게임 시작
+  document.getElementById("skillBar")
+    .classList.add("show");
+
+  document.getElementById("wrap")
+    .style.display = "flex";
+
   resetGameState();
 
-if (type === "eren"){
-  erenMode = true;
-  leviMode = false;
-  fingerMode = false; 
-  playerImg.src = erenImg.src;
+  // 🔥 UI 초기화
+  document.getElementById("erenUI")
+    .classList.remove("show");
 
-  document.getElementById("erenUI").classList.add("show");
-  document.getElementById("leviUI").classList.remove("show");
-document.getElementById("fingerUI").classList.remove("show");
-document.getElementById("mikasaUI").classList.remove("show");
-}
-else if (type === "levi"){
-  leviMode = true;
-  erenMode = false;
-fingerMode = false; 
-  playerImg.src = leviImg.src;
+  document.getElementById("leviUI")
+    .classList.remove("show");
 
-  document.getElementById("leviUI").classList.add("show");
-  document.getElementById("erenUI").classList.remove("show");
-document.getElementById("fingerUI").classList.remove("show");
-document.getElementById("mikasaUI").classList.remove("show");
-}
-else if (type === "finger"){
-  fingerMode = true;
-  erenMode = false;
-  leviMode = false;
+  document.getElementById("fingerUI")
+    .classList.remove("show");
 
-  playerImg.src = fingerImg.src;
+  document.getElementById("mikasaUI")
+    .classList.remove("show");
 
-  document.getElementById("erenUI").classList.remove("show");
-document.getElementById("leviUI").classList.remove("show");
-document.getElementById("fingerUI").classList.add("show");
-document.getElementById("mikasaUI").classList.remove("show");
-}
-else {
+  document.getElementById("arminUI")
+    .classList.remove("show");
 
-  erenMode = false;
-  leviMode = false;
-  fingerMode = false;
+  // 🔥 캐릭 분기
+  if (type === "eren") {
 
-  // 🔥 각성 여부 체크
-  if (mikasaAwaken){
-    playerImg.src = "mikasa_awaken.png";
-  } else {
-    playerImg.src = "player.png";
+    erenMode = true;
+    playerImg.src = erenImg.src;
+
+    document.getElementById("erenUI")
+      .classList.add("show");
   }
 
-  document.getElementById("erenUI").classList.remove("show");
-  document.getElementById("leviUI").classList.remove("show");
-  document.getElementById("fingerUI").classList.remove("show");
-if (mikasaAwaken){
-    document.getElementById("mikasaUI").classList.add("show");
-  } else {
-    document.getElementById("mikasaUI").classList.remove("show");
-  }
-}
+  else if (type === "levi") {
 
+    leviMode = true;
+    playerImg.src = leviImg.src;
+
+    document.getElementById("leviUI")
+      .classList.add("show");
+  }
+
+  else if (type === "finger") {
+
+    fingerMode = true;
+    playerImg.src = fingerImg.src;
+
+    document.getElementById("fingerUI")
+      .classList.add("show");
+  }
+
+  else if (type === "armin") {
+
+    playerImg.src = arminImg.src;
+
+    document.getElementById("arminUI")
+      .classList.add("show");
+  }
+
+  else {
+
+    if (mikasaAwaken){
+      playerImg.src = "mikasa_awaken.png";
+
+      document.getElementById("mikasaUI")
+        .classList.add("show");
+
+    } else {
+      playerImg.src = "player.png";
+    }
+  }
 
   lastTime = performance.now();
-  requestAnimationFrame(loop);
-}
 
+  loopId = loopId = requestAnimationFrame(loop);
+}
 // 🔥 키 입력 처리 (정석)
 document.addEventListener("keydown", e => {
 
@@ -737,6 +806,14 @@ document.addEventListener("keydown", e => {
 else if (fingerMode) {
   if (fingerCooldown) return;
   activateFingerTitan();
+}
+else if (selectedCharacter === "armin") {
+
+  if (colossalCooldown ||
+      colossalTransforming ||
+      colossalMode) return;
+
+  activateColossalTitan();
 }
 else if (mikasaAwaken) {
   activateAckermanSlash();
@@ -791,6 +868,23 @@ else if (
   showUnlockEffect("🖐️ 핑크핑거 해금!");
 }
 else if (
+  (inputBuffer.includes(secretArminKr) ||
+   inputBuffer.includes(secretArminEn)) &&
+  !unlocked.armin
+) {
+
+  unlocked.armin = true;
+
+  document.getElementById("arminBtn").style.opacity = "1";
+
+  document.getElementById("arminLock")
+    .classList.add("hide");
+
+  showUnlockEffect("🧠 아르민 해금!");
+
+  inputBuffer = "";
+}
+else if (
   inputBuffer.includes(secretMikasaKr) ||
   inputBuffer.includes(secretMikasaEn)
 ) {
@@ -808,6 +902,7 @@ else if (
   unlocked.eren = true;
   unlocked.levi = true;
   unlocked.finger = true;
+unlocked.armin = true;	
 
   // 🔥 각성 미카사 포함
   mikasaAwaken = true;
@@ -816,11 +911,13 @@ else if (
   document.getElementById("erenBtn").style.opacity = "1";
   document.getElementById("leviBtn").style.opacity = "1";
   document.getElementById("fingerBtn").style.opacity = "1";
+document.getElementById("arminBtn").style.opacity = "1";
 
   // 자물쇠 제거
   document.getElementById("erenLock").classList.add("hide");
   document.getElementById("leviLock").classList.add("hide");
   document.getElementById("fingerLock").classList.add("hide");
+document.getElementById("arminLock").classList.add("hide");
 
   // 🔥 미카사 이미지 변경
   playerImg.src = "mikasa_awaken.png";
@@ -1028,6 +1125,72 @@ if (mikasaAwaken) {
     if (!mikasaCooldown){
       mstate.innerText = "READY";
       mstate.style.color = "#ffffff";
+    }
+  }
+}
+// 🌋 아르민 UI
+const acd =
+  document.getElementById("arminCooldownFill");
+
+const adur =
+  document.getElementById("arminDurationFill");
+
+const astate =
+  document.getElementById("arminState");
+
+if (selectedCharacter === "armin") {
+
+  // ⏳ 쿨타임
+  if (colossalCooldown){
+
+    const total = 45000;
+
+    const remain =
+      Math.max(
+        0,
+        total - (
+          Date.now() - colossalCooldownTime
+        )
+      );
+
+    acd.style.width =
+      (remain / total) * 100 + "%";
+
+    astate.innerText = "쿨타임";
+    astate.style.color = "#ff5555";
+
+  } else {
+
+    acd.style.width = "0%";
+  }
+
+  // 🔥 지속시간
+  if (colossalMode){
+
+    const total = 5000;
+
+    const remain =
+      Math.max(
+        0,
+        total - (
+          Date.now() - colossalDurationTime
+        )
+      );
+
+    adur.style.width =
+      (remain / total) * 100 + "%";
+
+    astate.innerText = "ACTIVE";
+    astate.style.color = "#00ffcc";
+
+  } else {
+
+    adur.style.width = "0%";
+
+    if (!colossalCooldown){
+
+      astate.innerText = "READY";
+      astate.style.color = "#ffffff";
     }
   }
 }
@@ -1507,6 +1670,40 @@ if (dashCooldown) {
   if (Date.now() - dashCooldownTime > 1500) {
     dashCooldown = false;
   }
+}
+
+// 🌋 초대형 거인 열풍 오라
+if (colossalMode) {
+
+  const colossalAuraRange = 320;
+
+  enemies = enemies.filter(e => {
+
+    const dx = player.x - e.x;
+    const dy = player.y - e.y;
+    const dist = Math.hypot(dx, dy);
+
+    // 🔥 여성형 / 갑옷도 지속 피해
+    if (dist < colossalAuraRange){
+
+      damageEnemy(e, 1);
+
+      // 일반 적 즉사
+      if (e.type !== "boss" &&
+          e.type !== "female") {
+        return false;
+      }
+
+      // 보스류는 체력 남으면 유지
+      if (e.hp > 0){
+        return true;
+      }
+
+      return false;
+    }
+
+    return true;
+  });
 }	
   // UI 업데이트
   if(!gameOver){
@@ -1519,71 +1716,125 @@ document.getElementById("killText").innerText =
   }
 }
 function updateCountdown(){
+
   const el = document.getElementById("countdown");
+
+  // ⭐ rect 맨 위
+  const rect = canvas.getBoundingClientRect();
+
+  // 🌋 아르민 변신 카운트다운
+  if (colossalTransforming) {
+
+    el.style.display = "block";
+
+    const remain =
+      3000 - (Date.now() - colossalCooldownTime);
+
+    el.innerText =
+      Math.ceil(remain / 1000);
+
+    el.style.left =
+      rect.left + player.x + "px";
+
+    el.style.top =
+      rect.top + player.y - 70 + "px";
+
+    el.style.fontSize = "42px";
+
+    el.style.transform =
+      "translate(-50%, -50%)";
+
+    return;
+  }
 
   // 🔥 에렌
   if (titanMode) {
+
     const total = 5000;
-    const remain = total - (Date.now() - titanDurationTime);
+
+    const remain =
+      total - (Date.now() - titanDurationTime);
 
     if (remain <= 3000 && remain > 0) {
+
       el.style.display = "block";
       el.innerText = Math.ceil(remain / 1000);
+
     } else {
+
       el.style.display = "none";
       return;
     }
   }
-else if (fingerTitanMode) {
-  const total = 5000;
-  const remain = total - (Date.now() - fingerDurationTime);
 
-  if (remain <= 3000 && remain > 0) {
-    el.style.display = "block";
-    el.innerText = Math.ceil(remain / 1000);
-  } else {
-    el.style.display = "none";
-    return;
+  // 🔥 핑거
+  else if (fingerTitanMode) {
+
+    const total = 5000;
+
+    const remain =
+      total - (Date.now() - fingerDurationTime);
+
+    if (remain <= 3000 && remain > 0) {
+
+      el.style.display = "block";
+      el.innerText = Math.ceil(remain / 1000);
+
+    } else {
+
+      el.style.display = "none";
+      return;
+    }
   }
-}
 
   // 🔥 리바이
   else if (leviSkillActive) {
+
     const total = 5000;
-    const remain = total - (Date.now() - leviDurationStart);
+
+    const remain =
+      total - (Date.now() - leviDurationStart);
 
     if (remain > 0) {
+
       el.style.display = "block";
       el.innerText = Math.ceil(remain / 1000);
+
     } else {
+
       el.style.display = "none";
       return;
     }
   }
 
   else {
+
     el.style.display = "none";
     return;
   }
 
-  // ⭐ 공통 위치 계산
-const rect = canvas.getBoundingClientRect();
+  // ⭐ 공통 위치
+  el.style.left =
+    rect.left + player.x + "px";
 
-// 🔥 리바이 전용 위치 + 크기
-if (leviSkillActive) {
-  el.style.left = rect.left + player.x + "px";
-  el.style.top  = rect.top + player.y - 40 + "px"; // 더 아래
-  el.style.fontSize = "18px"; // 작게
-}
+  // 리바이만 살짝 아래
+  if (leviSkillActive) {
 
-// 🔥 에렌은 기존 유지
-else {
-  el.style.left = rect.left + player.x + "px";
-  el.style.top  = rect.top + player.y - 60 + "px";
-  el.style.fontSize = "30px";
-}
+    el.style.top =
+      rect.top + player.y - 40 + "px";
 
-el.style.transform = "translate(-50%, -50%)";
+    el.style.fontSize = "18px";
+
+  } else {
+
+    el.style.top =
+      rect.top + player.y - 60 + "px";
+
+    el.style.fontSize = "30px";
+  }
+
+  el.style.transform =
+    "translate(-50%, -50%)";
 }
 function loop(time){
   if(gameOver) return;
@@ -1596,7 +1847,7 @@ function loop(time){
   updateSkillUI();
   updateCountdown();
 
-  requestAnimationFrame(loop);
+  loopId = requestAnimationFrame(loop);
 }
 
 function spawnSmokeEffect(x, y){
@@ -1741,6 +1992,9 @@ let size = 40 * SCALE;
   }
 if (fingerMode && fingerTitanMode) {
   size = 40 * 2.2 * SCALE;
+}
+if (colossalMode) {
+  size = 40 * 5.5 * SCALE;
 }
 // 🔥 이스터에그 오브젝트
 easterObjects.forEach(o => {
@@ -1961,7 +2215,11 @@ if (invincible) return;
   const dy = player.y - s.y;
   const dist = Math.hypot(dx, dy);
 
- if (dist < s.radius && !invincible) {
+if (
+  dist < s.radius &&
+  !invincible &&
+  !s.harmless
+) {
 
   if (gameOver) return;
 
@@ -2022,6 +2280,101 @@ fingerBullets.forEach(b => {
   ctx.restore();
 
 });
+// ☢️ 버섯구름 폭발
+mushroomClouds.forEach((m, i)=>{
+
+  const progress =
+    1 - (m.life / 90);
+
+  // 🔥 아래 폭발부
+  ctx.beginPath();
+
+  ctx.arc(
+    m.x,
+    m.y,
+    m.radius * (1 + progress*2),
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fillStyle =
+    "rgba(80,80,80," +
+    (m.life/120) + ")";
+
+  ctx.fill();
+
+  // ☁️ 위 버섯 머리
+  for(let j=0;j<8;j++){
+
+    const angle =
+      (Math.PI*2/8)*j;
+
+    const px =
+      m.x +
+      Math.cos(angle) *
+      (70 + progress*120);
+
+    const py =
+      m.y -
+      120 -
+      progress*140 +
+      Math.sin(angle)*30;
+
+    ctx.beginPath();
+
+    ctx.arc(
+      px,
+      py,
+      35 + progress*50,
+      0,
+      Math.PI * 2
+    );
+
+    ctx.fillStyle =
+      "rgba(" +
+      (40+Math.random()*30) + "," +
+      (40+Math.random()*30) + "," +
+      (40+Math.random()*30) + "," +
+      (m.life/120) + ")";
+
+    ctx.fill();
+  }
+
+  // 🌋 화염 코어
+  ctx.beginPath();
+
+  ctx.arc(
+    m.x,
+    m.y,
+    60 + progress*80,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fillStyle =
+    "rgba(255," +
+    (120-progress*80) + ",0," +
+    (m.life/100) + ")";
+
+  ctx.fill();
+
+  // 📳 화면 흔들림
+  canvas.style.transform =
+    "translate(" +
+    (Math.random()*16-8) + "px," +
+    (Math.random()*16-8) + "px)";
+
+  m.radius += 2.5;
+  m.life--;
+
+  if (m.life <= 0){
+
+    mushroomClouds.splice(i,1);
+
+    canvas.style.transform = "";
+  }
+});
+
 if (screenFlash > 0){
 
   // 흰 플래시
@@ -2120,7 +2473,7 @@ playerImg.src = erenImg.src;
 erenMode = true;
 leviMode = false;
 
-requestAnimationFrame(loop);
+loopId = requestAnimationFrame(loop);
    
 
     }, 1000);
@@ -2205,7 +2558,7 @@ function activateLeviMode(){
       leviMode = true;
 
       resetGameState();
-      requestAnimationFrame(loop);
+      loopId = requestAnimationFrame(loop);
 
     }, 1000);
 
@@ -2327,7 +2680,149 @@ fingerFireInterval = setInterval(()=>{
     fingerCooldown = false;
   }, 45000);
 }
+function activateColossalTitan(){
+
+  const mySession = sessionId;
+
+  colossalCooldown = true;
+  colossalCooldownTime = Date.now();
+
+  colossalTransforming = true;
+
+  invincible = true;
+
+  let count = 3;
+
+  const interval = setInterval(()=>{
+
+    if (mySession !== sessionId){
+      clearInterval(interval);
+      return;
+    }
+
+    count--;
+
+    if (count <= 0){
+
+      clearInterval(interval);
+
+      if (mySession !== sessionId) return;
+
+      colossalTransforming = false;
+      colossalMode = true;
+
+// ☢️ 버섯폭발 생성
+mushroomClouds.push({
+  x: player.x,
+  y: player.y,
+  radius: 40,
+  life: 90
+});
+
+// 🌋 초대형 변신 충격파
+for(let i=0;i<5;i++){
+
+  shockwaves.push({
+    x: player.x,
+    y: player.y,
+    radius: 60 + i*60,
+    life: 30 + i*4,
+    harmless:true
+  });
+}
+
+      colossalDurationTime = Date.now();
+
+      colossalExplosion = 65;
+
+      playerImg.src = colossalImg.src;
+
+      player.speed = 1.8;
+
+      enemies = enemies.filter(e => {
+
+        const dx = player.x - e.x;
+        const dy = player.y - e.y;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist < 520){
+
+          damageEnemy(e, 999);
+
+          if (e.hp > 0) return true;
+
+          return false;
+        }
+
+        return true;
+      });
+
+      setTimeout(()=>{
+
+        if (mySession !== sessionId) return;
+
+        
+
+// ☠️ 주변 적 제거
+enemies = enemies.filter(e => {
+
+  const dx = player.x - e.x;
+  const dy = player.y - e.y;
+  const dist = Math.hypot(dx, dy);
+
+  if (dist < 220){
+
+    damageEnemy(e, 999);
+
+    if (e.hp > 0) return true;
+
+    return false;
+  }
+
+  return true;
+});
+
+colossalMode = false;
+colossalTransforming = false;
+
+// 🛡️ 종료 후 잠깐 무적 유지
+setTimeout(()=>{
+  invincible = false;
+}, 1500);
+
+player.speed = 4;
+
+if (selectedCharacter === "armin"){
+  playerImg.src = arminImg.src;
+}
+
+      }, 5000);
+    }
+
+  }, 1000);
+
+  setTimeout(()=>{
+
+    if (mySession !== sessionId) return;
+
+ // 🌋 초대형 충격파 제거
+  shockwaves = shockwaves.filter(
+    s => !s.harmless
+  );
+
+    colossalCooldown = false;
+
+  }, 45000);
+}
+
 function resetGameState() {
+
+  sessionId++;
+
+  if (loopId){
+    cancelAnimationFrame(loopId);
+    loopId = null;
+  }
 
   player = {x:300,y:200,speed:4};
   enemies = [];
@@ -2368,6 +2863,13 @@ screenFlash = 0;
 if (mikasaAwaken){
   playerImg.src = "mikasa_awaken.png";
 }
+// 🌋 아르민 초기화
+colossalMode = false;
+colossalTransforming = false;
+colossalCooldown = false;
+colossalExplosion = 0;
+
+player.speed = 4;
 
   // ⭐⭐⭐ 핑거 추가 ⭐⭐⭐
   fingerTitanMode = false;
@@ -2407,53 +2909,81 @@ function fireFingerMachineGun(){
 }
 function restartGame(){
 
-  document.getElementById("gameOverScreen").style.display = "none";
+  document.getElementById("gameOverScreen")
+    .style.display = "none";
 
   resetGameState();
 
-  // 🔥 UI 전부 초기화
-  document.getElementById("erenUI").classList.remove("show");
-  document.getElementById("leviUI").classList.remove("show");
-  document.getElementById("fingerUI").classList.remove("show");
-document.getElementById("mikasaUI").classList.remove("show");
+  // 🔥 UI 초기화
+  document.getElementById("erenUI")
+    .classList.remove("show");
 
-  // 캐릭 유지
-  if (selectedCharacter === "eren"){
+  document.getElementById("leviUI")
+    .classList.remove("show");
+
+  document.getElementById("fingerUI")
+    .classList.remove("show");
+
+  document.getElementById("mikasaUI")
+    .classList.remove("show");
+
+  document.getElementById("arminUI")
+    .classList.remove("show");
+
+  // 🔥 캐릭 유지
+  if (selectedCharacter === "eren") {
+
     erenMode = true;
     playerImg.src = erenImg.src;
-    document.getElementById("erenUI").classList.add("show");
+
+    document.getElementById("erenUI")
+      .classList.add("show");
   }
-  else if (selectedCharacter === "levi"){
+
+  else if (selectedCharacter === "levi") {
+
     leviMode = true;
     playerImg.src = leviImg.src;
-    document.getElementById("leviUI").classList.add("show");
+
+    document.getElementById("leviUI")
+      .classList.add("show");
   }
-  else if (selectedCharacter === "finger"){
+
+  else if (selectedCharacter === "finger") {
+
     fingerMode = true;
     playerImg.src = fingerImg.src;
-    document.getElementById("fingerUI").classList.add("show");
+
+    document.getElementById("fingerUI")
+      .classList.add("show");
   }
+
+  else if (selectedCharacter === "armin") {
+
+    playerImg.src = arminImg.src;
+
+    document.getElementById("arminUI")
+      .classList.add("show");
+  }
+
   else {
 
-  erenMode = false;
-  leviMode = false;
-  fingerMode = false;
+    if (mikasaAwaken){
 
-  // 🔥 각성 미카사 유지
-  if (mikasaAwaken){
-    playerImg.src = "mikasa_awaken.png";
-  } else {
-    playerImg.src = "player.png";
+      playerImg.src = "mikasa_awaken.png";
+
+      document.getElementById("mikasaUI")
+        .classList.add("show");
+
+    } else {
+
+      playerImg.src = "player.png";
+    }
   }
-if (mikasaAwaken){
-    document.getElementById("mikasaUI").classList.add("show");
-  } else {
-    document.getElementById("mikasaUI").classList.remove("show");
-  }
-}
-gameOver = false;
+
   lastTime = performance.now();
-  requestAnimationFrame(loop);
+
+  loopId = requestAnimationFrame(loop);
 }
 function showUnlockEffect(text){
 
