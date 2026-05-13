@@ -712,7 +712,8 @@ const upgrades = [
     desc:"이동속도 증가",
     max:3,
     apply(){
-      player.speed += 0.25;
+      player.baseSpeed += 0.25;
+      player.speed = player.baseSpeed;
     }
   },
 
@@ -2011,7 +2012,23 @@ if (colossalMode &&
     gameTime >= colossalEndTime){
 
   colossalMode = false;
-  playerImg.src = arminImg.src;
+
+  // 🌋 아르민 이미지 복구
+  playerImg.src = "armin.png";
+
+  // 🔥 강화 포함 원래 이속 복구
+  player.speed = player.baseSpeed;
+
+  // 🛡️ 다른 무적 상태 없으면 무적 해제
+  if (
+    !wireActive &&
+    !leviSkillActive &&
+    !ackermanSlashActive &&
+    !titanMode &&
+    !fingerTitanMode
+  ){
+    invincible = false;
+  }
 }
 
 // ⏳ 초대형 쿨타임 종료
@@ -3278,10 +3295,22 @@ upgradeSelecting = false;
     loopId = null;
   }
 
-  player = {x:300,y:200,speed:4};
+  player = {
+  x:300,
+  y:200,
+  baseSpeed:4,
+  speed:4
+};
+
   enemies = [];
   slashEffects = [];
-easterObjects = [];
+  dashSlashes = [];
+  fingerBullets = [];
+  shockwaves = [];
+  femaleEffects = [];
+  mushroomClouds = [];
+  easterObjects = [];
+
   keys = {};
   inputBuffer = "";
 
@@ -3289,6 +3318,10 @@ easterObjects = [];
   pausedTime = 0;
   lastTime = performance.now();
   isPaused = false;
+
+  // 🛡️ 시작 직후 안전 무적
+  invincible = true;
+  dashInvincibleEndTime = gameTime + 1200;
 
   gameOver = false;
 killCount = 0;
@@ -3323,7 +3356,8 @@ colossalTransforming = false;
 colossalCooldown = false;
 colossalExplosion = 0;
 
-player.speed = 4;
+player.baseSpeed = 4;
+player.speed = player.baseSpeed;
 
   // ⭐⭐⭐ 핑거 추가 ⭐⭐⭐
   fingerTitanMode = false;
@@ -3523,7 +3557,8 @@ function activateAwakenedMikasa(){
 
   // 플레이어 강화
   if (player){
-    player.speed = 4;
+    player.baseSpeed = 4;
+player.speed = player.baseSpeed;
   }
 
   // 실제 플레이 이미지 변경
