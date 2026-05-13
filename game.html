@@ -641,6 +641,23 @@ let dashEndTime = 0;
 let dashCooldown = false;
 let dashCooldownTime = 0;
 let dashDir = {x:0, y:0};
+let dashInvincibleEndTime = 0;
+
+let titanEndTime = 0;
+let titanCooldownEndTime = 0;
+
+let leviEndTime = 0;
+let leviCooldownEndTime = 0;
+
+let fingerEndTime = 0;
+let fingerCooldownEndTime = 0;
+
+let colossalEndTime = 0;
+let colossalCooldownEndTime = 0;
+
+let mikasaEndTime = 0;
+let mikasaCooldownEndTime = 0;
+
 let femaleEffects = [];
 let shockwaves = [];
 let colossalExplosion = 0;
@@ -659,6 +676,145 @@ let unlocked = {
   armin: false
 };
 let isSelecting = false;
+
+// 🔥 강화 시스템 기반 변수
+let upgradeSelecting = false;
+
+let dashCooldownDuration = 1500;
+let dashInvincibleDuration = 400;
+
+let skillCooldownDuration = 45000;
+let skillDuration = 5000;
+
+let upgradePauseStart = 0;
+
+// ⏳ 게임 엔진 시간 시스템
+let gameTime = 0;
+let gamePaused = false;
+
+
+// 🎴 강화 시스템
+let currentUpgradeCards = [];
+let selectedUpgradeIndex = 0;
+
+const upgradeLevels = {
+  speed: 0,
+  dashInvincible: 0,
+  dashCooldown: 0,
+  qCooldown: 0,
+  skillDuration: 0
+};
+
+const upgrades = [
+  {
+    id:"speed",
+    name:"⚡ 이동속도",
+    desc:"이동속도 증가",
+    max:3,
+    apply(){
+      player.speed += 0.25;
+    }
+  },
+
+  {
+    id:"dashInvincible",
+    name:"🛡️ 무적시간",
+    desc:"입체기동 무적 증가",
+    max:3,
+    apply(){
+      dashInvincibleDuration =
+        Math.min(1000, dashInvincibleDuration + 200);
+    }
+  },
+
+  {
+    id:"dashCooldown",
+    name:"🪢 입체기동 쿨감",
+    desc:"입체기동 쿨 감소",
+    max:3,
+    apply(){
+      dashCooldownDuration =
+        Math.max(1000, dashCooldownDuration - 150);
+    }
+  },
+
+  {
+    id:"qCooldown",
+    name:"🔥 Q 쿨감",
+    desc:"Q 스킬 쿨 감소",
+    max:3,
+    apply(){
+      skillCooldownDuration =
+        Math.max(15000, skillCooldownDuration - 3000);
+    }
+  },
+
+  {
+    id:"skillDuration",
+    name:"⏳ 지속시간",
+    desc:"스킬 지속 증가",
+    max:3,
+    apply(){
+      skillDuration += 1000;
+    }
+  }
+];
+
+function openUpgradeSelect(){
+
+  upgradeSelecting = true;
+  gamePaused = true;
+  invincible = true;
+
+  upgradePauseStart = Date.now();
+
+  wireActive = false;
+  dashActive = false;
+
+  selectedUpgradeIndex = 0;
+
+  currentUpgradeCards =
+    upgrades
+      .filter(u =>
+        upgradeLevels[u.id] < u.max
+      )
+      .sort(() => Math.random() - 0.5)
+      .slice(0,3);
+
+  const totalWidth =
+    3 * 180 + 2 * 30;
+
+  const startX =
+    (canvas.width - totalWidth) / 2;
+
+  currentUpgradeCards.forEach((c,i)=>{
+
+    c.x = startX + (i * 210);
+    c.y = 155;
+
+    c.w = 180;
+    c.h = 130;
+  });
+}
+
+function applyUpgrade(card){
+
+  card.apply();
+
+  upgradeLevels[card.id]++;
+
+// ⏸️ gameTime 기반이라 타이머 보정 불필요
+
+  // 🔥 프레임 점프 방지
+  lastTime = performance.now();
+
+  upgradeSelecting = false;
+
+  upgradeInvincibleEndTime =
+    gameTime + 300;
+}
+
+
 
 document.getElementById("startBtn").onclick = startGame;
 
@@ -790,7 +946,50 @@ document.addEventListener("keydown", e => {
 
   keys[e.key.toLowerCase()] = true;
 
-  // Q 스킬
+  
+  // 🎴 강화 선택 방향키
+  if (upgradeSelecting) {
+
+    if (e.key === "ArrowLeft") {
+
+      selectedUpgradeIndex--;
+
+      if (selectedUpgradeIndex < 0) {
+        selectedUpgradeIndex =
+          currentUpgradeCards.length - 1;
+      }
+
+      return;
+    }
+
+    if (e.key === "ArrowRight") {
+
+      selectedUpgradeIndex++;
+
+      if (selectedUpgradeIndex >= currentUpgradeCards.length) {
+        selectedUpgradeIndex = 0;
+      }
+
+      return;
+    }
+
+    if (
+      e.key.toLowerCase() === "q" ||
+      e.key === "Shift"
+    ) {
+
+      const card =
+        currentUpgradeCards[selectedUpgradeIndex];
+
+      if (card) {
+        applyUpgrade(card);
+      }
+
+      return;
+    }
+  }
+
+// Q 스킬
  if (e.key.toLowerCase() === "q") {
 
   // 🔥 에렌
@@ -956,11 +1155,39 @@ wireTarget.y = player.y + dy * 200;
 wireActive = true;
 
   dashCooldown = true;
-  dashCooldownTime = Date.now();
+  dashCooldownTime = gameTime;
 
-  invincible = true; // ⭐ 무적
+  // 🔥 입체기동 무적 시작
+  invincible = true;
+
+  dashInvincibleEndTime =
+    gameTime + dashInvincibleDuration + 400;
 }
 });
+
+
+canvas.addEventListener("click", e=>{
+
+  if (!upgradeSelecting) return;
+
+  const rect = canvas.getBoundingClientRect();
+
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  currentUpgradeCards.forEach((card,index)=>{
+
+    if (
+      mx > card.x &&
+      mx < card.x + card.w &&
+      my > card.y &&
+      my < card.y + card.h
+    ){
+      applyUpgrade(card);
+    }
+  });
+});
+
 // 🔥 이거 반드시 있어야함
 document.addEventListener("keyup", e => {
   keys[e.key.toLowerCase()] = false;
@@ -975,8 +1202,8 @@ function updateSkillUI(){
 
   // 🔥 쿨타임
   if (titanCooldown){
-    const total = 45000;
-    const remain = Math.max(0, total - (Date.now() - titanCooldownTime));
+    const total = skillCooldownDuration;
+    const remain = Math.max(0, total - (gameTime - titanCooldownTime));
 
     cd.style.width = (remain / total) * 100 + "%";
 
@@ -989,8 +1216,8 @@ function updateSkillUI(){
 
   // 🔥 지속시간
   if (titanMode){
-    const total = 5000;
-    const remain = Math.max(0, total - (Date.now() - titanDurationTime));
+    const total = skillDuration;
+    const remain = Math.max(0, total - (gameTime - titanDurationTime));
 
     dur.style.width = (remain / total) * 100 + "%";
 
@@ -1012,8 +1239,8 @@ const leviState = document.getElementById("leviState");
 if (leviMode) {
 
   if (leviCooldown) {
-    const total = 45000;
-    const remain = Math.max(0, total - (Date.now() - leviCooldownStart));
+    const total = skillCooldownDuration;
+    const remain = Math.max(0, total - (gameTime - leviCooldownStart));
 
     leviFill.style.width = (remain / total) * 100 + "%";
 
@@ -1036,8 +1263,8 @@ if (fingerMode) {
 
   // 쿨타임
   if (fingerCooldown){
-    const total = 45000;
-    const remain = Math.max(0, total - (Date.now() - fingerCooldownTime));
+    const total = skillCooldownDuration;
+    const remain = Math.max(0, total - (gameTime - fingerCooldownTime));
 
     fcd.style.width = (remain / total) * 100 + "%";
 
@@ -1049,8 +1276,8 @@ if (fingerMode) {
 
   // 지속시간
   if (fingerTitanMode){
-    const total = 5000;
-    const remain = Math.max(0, total - (Date.now() - fingerDurationTime));
+    const total = skillDuration;
+    const remain = Math.max(0, total - (gameTime - fingerDurationTime));
 
     fdur.style.width = (remain / total) * 100 + "%";
 
@@ -1069,14 +1296,23 @@ const dFill = document.getElementById("dashCooldownFill");
 const dState = document.getElementById("dashState");
 
 if (dashCooldown) {
-  const total = 1500;
-  const remain = Math.max(0, total - (Date.now() - dashCooldownTime));
 
-  dFill.style.width = (remain / total) * 100 + "%";
+  const total = dashCooldownDuration;
+
+  const remain =
+    Math.max(
+      0,
+      total - (gameTime - dashCooldownTime)
+    );
+
+  dFill.style.width =
+    (remain / total) * 100 + "%";
 
   dState.innerText = "쿨타임";
   dState.style.color = "#ff5555";
+
 } else {
+
   dFill.style.width = "0%";
   dState.innerText = "READY";
   dState.style.color = "#ffffff";
@@ -1091,9 +1327,9 @@ if (mikasaAwaken) {
   // 쿨타임
   if (mikasaCooldown){
 
-    const total = 40000;
+    const total = skillCooldownDuration;
     const remain =
-      Math.max(0, total - (Date.now() - mikasaCooldownTime));
+      Math.max(0, total - (gameTime - mikasaCooldownTime));
 
     mcd.style.width =
       (remain / total) * 100 + "%";
@@ -1108,9 +1344,9 @@ if (mikasaAwaken) {
   // 지속시간
   if (ackermanSlashActive){
 
-    const total = 3500;
+    const total = skillDuration;
     const remain =
-      Math.max(0, total - (Date.now() - mikasaDurationTime));
+      Math.max(0, total - (gameTime - mikasaDurationTime));
 
     mdur.style.width =
       (remain / total) * 100 + "%";
@@ -1143,13 +1379,13 @@ if (selectedCharacter === "armin") {
   // ⏳ 쿨타임
   if (colossalCooldown){
 
-    const total = 45000;
+    const total = skillCooldownDuration;
 
     const remain =
       Math.max(
         0,
         total - (
-          Date.now() - colossalCooldownTime
+          gameTime - colossalCooldownTime
         )
       );
 
@@ -1167,13 +1403,13 @@ if (selectedCharacter === "armin") {
   // 🔥 지속시간
   if (colossalMode){
 
-    const total = 5000;
+    const total = skillDuration;
 
     const remain =
       Math.max(
         0,
         total - (
-          Date.now() - colossalDurationTime
+          gameTime - colossalDurationTime
         )
       );
 
@@ -1269,32 +1505,14 @@ function spawnEnemy(){
   });
 }
 
-setInterval(()=>{
-  if(gameOver) return;
+// ⏳ 엔진 기반 적 스폰
+let enemySpawnTimer = 0;
+let fingerFireTimer = 0;
+let upgradeInvincibleEndTime = 0;
 
-  const time = (Date.now() - startTime - pausedTime) / 1000;
+const SCREEN_SHAKE_DURATION = 40;
+let screenShakeEndTime = 0;
 
-  // 일반 적
-  const count = 1 + Math.floor(time / 20);
-  for (let i = 0; i < count; i++) {
-    spawnEnemy();
-  }
-
-const phase = Math.floor(time / 30);
-
-if (phase > lastBossPhase && time >= 30) {
-
-  // 🔥 60초 → 여성형
-  if (phase % 2 === 0) {
-    spawnFemaleTitan();
-  } else {
-    spawnBoss();
-  }
-
-  lastBossPhase = phase;
-}
-
-},2000);
 function spawnBoss(){
   enemies.push({
     x: Math.random()*600,
@@ -1326,7 +1544,81 @@ maxHp: 7,
   });
 }
 function update(delta){
-  if(gameOver) return;
+  if(gameOver || upgradeSelecting) return;
+
+  // ⏳ 내부 게임 시간 진행
+  gameTime += delta * 16.67;
+
+  // ⏳ 엔진 기반 적 스폰
+  enemySpawnTimer += delta * 16.67;
+
+  if (enemySpawnTimer >= 2000){
+
+    enemySpawnTimer = 0;
+
+    const time = gameTime / 1000;
+
+    // 일반 적 증가
+    const count =
+      1 + Math.floor(time / 20);
+
+    for (let i = 0; i < count; i++){
+      spawnEnemy();
+    }
+
+    // 보스 웨이브
+    const phase =
+      Math.floor(time / 30);
+
+    if (phase > lastBossPhase &&
+        time >= 30){
+
+      if (phase % 2 === 0){
+        spawnFemaleTitan();
+      } else {
+        spawnBoss();
+      }
+
+      lastBossPhase = phase;
+    }
+  }
+
+
+  // ⏳ 핑거 기관포 엔진화
+  if (fingerTitanMode){
+
+    fingerFireTimer += delta * 16.67;
+
+    if (fingerFireTimer >= 120){
+
+      fingerFireTimer = 0;
+
+      const nearest = enemies.reduce((a,b)=>{
+
+        const da = Math.hypot(player.x-a.x, player.y-a.y);
+        const db = Math.hypot(player.x-b.x, player.y-b.y);
+
+        return da < db ? a : b;
+
+      }, enemies[0]);
+
+      if (nearest){
+
+        const dx = nearest.x - player.x;
+        const dy = nearest.y - player.y;
+        const dist = Math.hypot(dx,dy) || 1;
+
+        fingerBullets.push({
+          x: player.x,
+          y: player.y,
+          dx: dx/dist,
+          dy: dy/dist,
+          speed: 14,
+          life: 40
+        });
+      }
+    }
+  }
 
   // 플레이어 이동
   if(keys["arrowup"] || keys["w"]) player.y -= player.speed * delta;
@@ -1367,9 +1659,8 @@ if (wireActive) {
       "translate(" + (Math.random()*5-2.5) + "px," +
       (Math.random()*5-2.5) + "px)";
 
-    setTimeout(()=>{
-      canvas.style.transform = "";
-    }, 40);
+    screenShakeEndTime =
+      gameTime + SCREEN_SHAKE_DURATION;
 
     // ⚔️ 착지 주변 적 제거
     enemies = enemies.filter(e => {
@@ -1393,10 +1684,9 @@ if (wireActive) {
       return true;
     });
 
-    // 🔥 착지 후 짧은 무적
-    setTimeout(() => {
-      invincible = false;
-    }, 400);
+    // ⏳ 엔진 기반 무적 종료
+    dashInvincibleEndTime =
+      gameTime + dashInvincibleDuration;
   }
 
   // 🔥 이동
@@ -1418,9 +1708,12 @@ if (wireActive) {
     }
 
     // 너무 오래 지속 방지
-    if (Date.now() - dashCooldownTime > 400) {
+    if (gameTime - dashCooldownTime > 400) {
       wireActive = false;
-      invincible = false;
+
+      // 🔥 무적은 타이머로 종료
+      dashInvincibleEndTime =
+        gameTime + dashInvincibleDuration;
     }
   }
 }
@@ -1563,7 +1856,7 @@ else {
 
   if (dist < hitRange) {
 
-    if (invincible) return;
+    if (invincible || ackermanSlashActive) return;
 
     // 🔥 에렌 거인화
     if (erenMode && titanMode) {
@@ -1585,7 +1878,7 @@ else {
     gameOver = true;
 
     const score =
-      ((Date.now() - startTime - pausedTime) / 1000)
+      (gameTime / 1000)
       .toFixed(2);
 
     saveScoreToServer(score);
@@ -1665,9 +1958,129 @@ b.life--;
     fingerBullets.splice(i, 1);
   }
 });
+
+// ⏳ 에렌 종료
+if (titanMode &&
+    gameTime >= titanEndTime){
+
+  titanMode = false;
+  playerImg.src = erenImg.src;
+}
+
+// ⏳ 에렌 쿨타임 종료
+if (titanCooldown &&
+    gameTime >= titanCooldownEndTime){
+
+  titanCooldown = false;
+}
+
+// ⏳ 리바이 종료
+if (leviSkillActive &&
+    gameTime >= leviEndTime){
+
+  leviSkillActive = false;
+  invincible = false;
+}
+
+// ⏳ 리바이 쿨타임 종료
+if (leviCooldown &&
+    gameTime >= leviCooldownEndTime){
+
+  leviCooldown = false;
+}
+
+// ⏳ 핑거 종료
+if (fingerTitanMode &&
+    gameTime >= fingerEndTime){
+
+  fingerTitanMode = false;
+  playerImg.src = fingerImg.src;
+
+  
+}
+
+// ⏳ 핑거 쿨타임 종료
+if (fingerCooldown &&
+    gameTime >= fingerCooldownEndTime){
+
+  fingerCooldown = false;
+}
+
+// ⏳ 초대형 종료
+if (colossalMode &&
+    gameTime >= colossalEndTime){
+
+  colossalMode = false;
+  playerImg.src = arminImg.src;
+}
+
+// ⏳ 초대형 쿨타임 종료
+if (colossalCooldown &&
+    gameTime >= colossalCooldownEndTime){
+
+  colossalCooldown = false;
+}
+
+// ⏳ 미카사 종료
+if (ackermanSlashActive &&
+    gameTime >= mikasaEndTime){
+
+  ackermanSlashActive = false;
+
+  if (
+    !wireActive &&
+    !titanMode &&
+    !fingerTitanMode &&
+    !colossalMode &&
+    !leviSkillActive
+  ){
+    invincible = false;
+  }
+}
+
+// ⏳ 미카사 쿨타임 종료
+if (mikasaCooldown &&
+    gameTime >= mikasaCooldownEndTime){
+
+  mikasaCooldown = false;
+}
+
+
+// ⏳ 강화창 무적 종료
+if (
+  upgradeInvincibleEndTime > 0 &&
+  gameTime >= upgradeInvincibleEndTime
+){
+  upgradeInvincibleEndTime = 0;
+
+  if (
+    !leviSkillActive &&
+    !ackermanSlashActive &&
+    !titanMode &&
+    !fingerTitanMode &&
+    !colossalMode
+  ){
+    invincible = false;
+  }
+}
+
+// ⏳ 입체기동 무적 종료
+if (
+  invincible &&
+  dashInvincibleEndTime > 0 &&
+  gameTime >= dashInvincibleEndTime &&
+  !leviSkillActive &&
+  !ackermanSlashActive &&
+  !titanMode &&
+  !fingerTitanMode &&
+  !colossalMode
+){
+  invincible = false;
+}
+
 // 🔥 대쉬 쿨타임 ⭐ 여기!
 if (dashCooldown) {
-  if (Date.now() - dashCooldownTime > 1500) {
+  if (gameTime - dashCooldownTime > dashCooldownDuration) {
     dashCooldown = false;
   }
 }
@@ -1705,11 +2118,21 @@ if (colossalMode) {
     return true;
   });
 }	
-  // UI 업데이트
+  
+// ⏳ 화면 흔들림 종료
+if (
+  screenShakeEndTime > 0 &&
+  gameTime >= screenShakeEndTime
+){
+  canvas.style.transform = "";
+  screenShakeEndTime = 0;
+}
+
+// UI 업데이트
   if(!gameOver){
     document.getElementById("timeText").innerText =
   "Time: " +
-  ((Date.now() - startTime - pausedTime)/1000).toFixed(1);
+  (gameTime / 1000).toFixed(1);
 
 document.getElementById("killText").innerText =
   "Kills: " + killCount;
@@ -1722,38 +2145,43 @@ function updateCountdown(){
   // ⭐ rect 맨 위
   const rect = canvas.getBoundingClientRect();
 
-  // 🌋 아르민 변신 카운트다운
-  if (colossalTransforming) {
+  // 🌋 초대형 종료 카운트다운
+  if (colossalMode) {
 
-    el.style.display = "block";
+    const total = skillDuration;
 
     const remain =
-      3000 - (Date.now() - colossalCooldownTime);
+      total - (gameTime - colossalDurationTime);
 
-    el.innerText =
-      Math.ceil(remain / 1000);
+    if (remain <= 3000 && remain > 0) {
 
-    el.style.left =
-      rect.left + player.x + "px";
+      el.style.display = "block";
 
-    el.style.top =
-      rect.top + player.y - 70 + "px";
+      el.innerText =
+        Math.ceil(remain / 1000);
 
-    el.style.fontSize = "42px";
+      el.style.left =
+        rect.left + player.x + "px";
 
-    el.style.transform =
-      "translate(-50%, -50%)";
+      el.style.top =
+        rect.top + player.y - 90 + "px";
 
-    return;
+      el.style.fontSize = "42px";
+
+      el.style.transform =
+        "translate(-50%, -50%)";
+
+      return;
+    }
   }
 
   // 🔥 에렌
   if (titanMode) {
 
-    const total = 5000;
+    const total = skillDuration;
 
     const remain =
-      total - (Date.now() - titanDurationTime);
+      total - (gameTime - titanDurationTime);
 
     if (remain <= 3000 && remain > 0) {
 
@@ -1770,10 +2198,10 @@ function updateCountdown(){
   // 🔥 핑거
   else if (fingerTitanMode) {
 
-    const total = 5000;
+    const total = skillDuration;
 
     const remain =
-      total - (Date.now() - fingerDurationTime);
+      total - (gameTime - fingerDurationTime);
 
     if (remain <= 3000 && remain > 0) {
 
@@ -1790,10 +2218,10 @@ function updateCountdown(){
   // 🔥 리바이
   else if (leviSkillActive) {
 
-    const total = 5000;
+    const total = skillDuration;
 
     const remain =
-      total - (Date.now() - leviDurationStart);
+      total - (gameTime - leviDurationStart);
 
     if (remain > 0) {
 
@@ -1838,6 +2266,12 @@ function updateCountdown(){
 }
 function loop(time){
   if(gameOver) return;
+  
+  if (upgradeSelecting){
+    draw();
+    requestAnimationFrame(loop);
+    return;
+  }
 
   const delta = (time - lastTime) / 16.67;
   lastTime = time;
@@ -1909,6 +2343,14 @@ if (e.dead) return;
   e.dead = true;
   killCount++;
 
+if (
+  killCount > 0 &&
+  killCount % 30 === 0 &&
+  !upgradeSelecting
+){
+  openUpgradeSelect();
+}
+
       spawnEaster(e);
       spawnSmokeEffect(e.x, e.y);
 
@@ -1921,6 +2363,15 @@ if (e.dead) return;
   // 일반 적 즉사
 e.dead = true;
 killCount++;
+
+if (
+  killCount > 0 &&
+  killCount % 30 === 0 &&
+  !upgradeSelecting
+){
+  openUpgradeSelect();
+}
+
   spawnEaster(e);
   spawnSmokeEffect(e.x, e.y);
 
@@ -2096,7 +2547,7 @@ if (e.type === "female" && e.dashState === "jump") {
     ctx.stroke();
 
     // 깜빡 효과
-    if (Math.floor(Date.now()/100) % 2 === 0) {
+    if (Math.floor(gameTime/100) % 2 === 0) {
       ctx.fillStyle = "rgba(255,0,0,0.2)";
       ctx.beginPath();
       ctx.arc(e.jumpTargetX, e.jumpTargetY, 40, 0, Math.PI * 2);
@@ -2218,6 +2669,7 @@ if (invincible) return;
 if (
   dist < s.radius &&
   !invincible &&
+  !ackermanSlashActive &&
   !s.harmless
 ) {
 
@@ -2225,7 +2677,7 @@ if (
 
   gameOver = true;
 
-  const score = ((Date.now() - startTime - pausedTime) / 1000).toFixed(2);
+  const score = (gameTime / 1000).toFixed(2);
 
   saveScoreToServer(score);
 saveKillToServer(killCount);
@@ -2375,6 +2827,63 @@ mushroomClouds.forEach((m, i)=>{
   }
 });
 
+
+// 🎴 강화 카드 UI
+if (upgradeSelecting){
+
+  ctx.fillStyle = "rgba(0,0,0,0.6)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  ctx.fillStyle = "white";
+  ctx.font = "bold 28px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText("강화를 선택하세요", canvas.width/2, 110);
+
+  currentUpgradeCards.forEach((card,index)=>{
+
+    ctx.fillStyle = "rgba(20,20,20,0.92)";
+    ctx.fillRect(card.x, card.y, card.w, card.h);
+
+    if (index === selectedUpgradeIndex) {
+
+      ctx.strokeStyle = "#ffd700";
+      ctx.lineWidth = 6;
+
+    } else {
+
+      ctx.strokeStyle = "#ff5555";
+      ctx.lineWidth = 3;
+    }
+
+    ctx.strokeRect(card.x, card.y, card.w, card.h);
+
+    ctx.fillStyle = "white";
+    ctx.font = "bold 22px Arial";
+    ctx.fillText(
+      card.name,
+      card.x + card.w/2,
+      card.y + 42
+    );
+
+    ctx.font = "16px Arial";
+    ctx.fillText(
+      card.desc,
+      card.x + card.w/2,
+      card.y + 75
+    );
+
+    ctx.fillStyle = "#ffd700";
+    ctx.fillText(
+      "Lv." +
+      upgradeLevels[card.id] +
+      " / " +
+      card.max,
+      card.x + card.w/2,
+      card.y + 108
+    );
+  });
+}
+
 if (screenFlash > 0){
 
   // 흰 플래시
@@ -2485,8 +2994,8 @@ function activateTitanMode(){
   titanCooldown = true;
   titanMode = true;
 
-  titanCooldownTime = Date.now();   // ⭐ 여기 넣기
-  titanDurationTime = Date.now();   // ⭐ 여기 넣기
+  titanCooldownTime = gameTime;   // ⭐ 여기 넣기
+  titanDurationTime = gameTime;   // ⭐ 여기 넣기
 
   // 🔥 즉시 위치 저장
   lightningX = player.x;
@@ -2503,16 +3012,11 @@ function activateTitanMode(){
     }, 100);
   });
 
-  // 5초 유지
-  setTimeout(() => {
-    playerImg.src = erenImg.src;
-    titanMode = false;
-  }, 5000);
+  titanEndTime =
+    gameTime + skillDuration;
 
-  // 45초 쿨타임
-  setTimeout(() => {
-    titanCooldown = false;
-  }, 45000);
+  titanCooldownEndTime =
+    gameTime + skillCooldownDuration;
 
 }
 function activateLeviMode(){
@@ -2569,60 +3073,61 @@ let leviCooldown = false;
 
 function activateLeviSkill(){
 
-  if (leviCooldown) return;
+  if (leviCooldown || leviSkillActive) return;
 
   leviCooldown = true;
-  leviCooldownStart = Date.now();
-  invincible = true; // 무적 시작
-leviDurationStart = Date.now();
-leviSkillActive = true;
+  leviSkillActive = true;
 
-  const duration = 5000; // 🔥 3초 지속
-  const intervalTime = 100; // 🔥 0.1초마다 베기
+  invincible = true;
 
-  const start = Date.now();
+  leviCooldownStart = gameTime;
+  leviDurationStart = gameTime;
+
+  leviEndTime = gameTime + skillDuration;
+  leviCooldownEndTime =
+    gameTime + skillCooldownDuration;
+
+  const intervalTime = 100;
 
   const interval = setInterval(() => {
 
-    // 🔥 이펙트 계속 생성
+    if (!leviSkillActive){
+      clearInterval(interval);
+      return;
+    }
+
     spawnLeviSlash(player.x, player.y);
 
-canvas.style.transform = "translate(" + (Math.random()*6-3) + "px," + (Math.random()*6-3) + "px)";
-  setTimeout(()=> canvas.style.transform="", 50);
+    canvas.style.transform =
+      "translate(" +
+      (Math.random()*6-3) + "px," +
+      (Math.random()*6-3) + "px)";
 
-    // 🔥 주변 적 계속 제거
+    setTimeout(()=>{
+      canvas.style.transform = "";
+    }, 50);
+
     enemies = enemies.filter(e => {
+
       const dx = player.x - e.x;
       const dy = player.y - e.y;
       const dist = Math.hypot(dx, dy);
 
-    if (dist < 180 * SCALE) {
+      if (dist < 180 * SCALE) {
 
-  damageEnemy(e, 999);
+        damageEnemy(e, 999);
 
-  if (e.hp > 0) {
-    return true;
-  }
+        if (e.hp > 0) return true;
 
-  return false;
-}
+        return false;
+      }
+
       return true;
     });
 
-    // ⏱️ 3초 끝나면 종료
-   if (Date.now() - start >= duration) {
-  clearInterval(interval);
-  invincible = false;
-  leviSkillActive = false; // ⭐ 이거 반드시 여기!
-}
-
   }, intervalTime);
-
-  // 🔥 쿨타임
-  setTimeout(() => {
-    leviCooldown = false;
-  }, 45000);
 }
+
 
 function spawnLeviSlash(x, y){
 
@@ -2644,178 +3149,127 @@ function spawnLeviSlash(x, y){
   }
 function activateFingerTitan(){
 
+  if (fingerCooldown || fingerTitanMode) return;
+
   fingerCooldown = true;
   fingerTitanMode = true;
 
-  fingerCooldownTime = Date.now();
-  fingerDurationTime = Date.now();
+  fingerCooldownTime = gameTime;
+  fingerDurationTime = gameTime;
 
-  // ⚡ 번개 추가 (에렌이랑 동일)
+  fingerEndTime =
+    gameTime + skillDuration;
+
+  fingerCooldownEndTime =
+    gameTime + skillCooldownDuration;
+
   lightningX = player.x;
   lightningY = player.y;
   lightningActive = true;
-fireFingerCannons();
-fingerFireInterval = setInterval(()=>{
-  fireFingerMachineGun();
-}, 80);
-  // 🔥 변신 이미지
+
   playerImg.src = fingerTitanImg.src;
 
-  // ⚡ 번개 짧게 유지
   requestAnimationFrame(() => {
     setTimeout(() => {
       lightningActive = false;
     }, 100);
   });
-
-  // 5초 유지
-  setTimeout(() => {
-    fingerTitanMode = false;
-    playerImg.src = fingerImg.src;
- clearInterval(fingerFireInterval);
-  }, 5000);
-
-  // 45초 쿨타임
-  setTimeout(() => {
-    fingerCooldown = false;
-  }, 45000);
 }
+
 function activateColossalTitan(){
 
-  const mySession = sessionId;
+  if (colossalCooldown || colossalMode) return;
 
   colossalCooldown = true;
-  colossalCooldownTime = Date.now();
+  colossalMode = true;
+  colossalTransforming = false;
 
-  colossalTransforming = true;
+  colossalCooldownTime = gameTime;
+  colossalDurationTime = gameTime;
+
+  colossalEndTime =
+    gameTime + skillDuration;
+
+  colossalCooldownEndTime =
+    gameTime + skillCooldownDuration;
 
   invincible = true;
 
-  let count = 3;
+  colossalExplosion = 65;
 
-  const interval = setInterval(()=>{
+  playerImg.src = colossalImg.src;
 
-    if (mySession !== sessionId){
-      clearInterval(interval);
-      return;
-    }
+  player.speed = 1.8;
 
-    count--;
-
-    if (count <= 0){
-
-      clearInterval(interval);
-
-      if (mySession !== sessionId) return;
-
-      colossalTransforming = false;
-      colossalMode = true;
-
-// ☢️ 버섯폭발 생성
-mushroomClouds.push({
-  x: player.x,
-  y: player.y,
-  radius: 40,
-  life: 90
-});
-
-// 🌋 초대형 변신 충격파
-for(let i=0;i<5;i++){
-
-  shockwaves.push({
+  mushroomClouds.push({
     x: player.x,
     y: player.y,
-    radius: 60 + i*60,
-    life: 30 + i*4,
-    harmless:true
+    radius: 40,
+    life: 90
+  });
+
+  for(let i=0;i<5;i++){
+
+    shockwaves.push({
+      x: player.x,
+      y: player.y,
+      radius: 60 + i*60,
+      life: 30 + i*4,
+      harmless:true
+    });
+  }
+
+  enemies = enemies.filter(e => {
+
+    const dx = player.x - e.x;
+    const dy = player.y - e.y;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist < 520){
+
+      damageEnemy(e, 999);
+
+      if (e.hp > 0) return true;
+
+      return false;
+    }
+
+    return true;
   });
 }
 
-      colossalDurationTime = Date.now();
-
-      colossalExplosion = 65;
-
-      playerImg.src = colossalImg.src;
-
-      player.speed = 1.8;
-
-      enemies = enemies.filter(e => {
-
-        const dx = player.x - e.x;
-        const dy = player.y - e.y;
-        const dist = Math.hypot(dx, dy);
-
-        if (dist < 520){
-
-          damageEnemy(e, 999);
-
-          if (e.hp > 0) return true;
-
-          return false;
-        }
-
-        return true;
-      });
-
-      setTimeout(()=>{
-
-        if (mySession !== sessionId) return;
-
-        
-
-// ☠️ 주변 적 제거
-enemies = enemies.filter(e => {
-
-  const dx = player.x - e.x;
-  const dy = player.y - e.y;
-  const dist = Math.hypot(dx, dy);
-
-  if (dist < 220){
-
-    damageEnemy(e, 999);
-
-    if (e.hp > 0) return true;
-
-    return false;
-  }
-
-  return true;
-});
-
-colossalMode = false;
-colossalTransforming = false;
-
-// 🛡️ 종료 후 잠깐 무적 유지
-setTimeout(()=>{
-  invincible = false;
-}, 1500);
-
-player.speed = 4;
-
-if (selectedCharacter === "armin"){
-  playerImg.src = arminImg.src;
-}
-
-      }, 5000);
-    }
-
-  }, 1000);
-
-  setTimeout(()=>{
-
-    if (mySession !== sessionId) return;
-
- // 🌋 초대형 충격파 제거
-  shockwaves = shockwaves.filter(
-    s => !s.harmless
-  );
-
-    colossalCooldown = false;
-
-  }, 45000);
-}
 
 function resetGameState() {
+
+// 🔥 강화 시스템 초기화
+upgradeLevels.speed = 0;
+upgradeLevels.dashInvincible = 0;
+upgradeLevels.dashCooldown = 0;
+upgradeLevels.qCooldown = 0;
+upgradeLevels.skillDuration = 0;
+
+dashCooldownDuration = 1500;
+dashInvincibleDuration = 400;
+
+skillCooldownDuration = 45000;
+skillDuration = 5000;
+
+currentUpgradeCards = [];
+selectedUpgradeIndex = 0;
+upgradeSelecting = false;
+
+
+  // ⏳ 내부 게임 시간 초기화
+  gameTime = 0;
+
+  // 스폰 타이머 초기화
+  enemySpawnTimer = 0;
+  fingerFireTimer = 0;
+
+  // 보스 웨이브 초기화
+  lastBossPhase = -1;
+
+
 
   sessionId++;
 
@@ -2874,7 +3328,7 @@ player.speed = 4;
   // ⭐⭐⭐ 핑거 추가 ⭐⭐⭐
   fingerTitanMode = false;
   fingerCooldown = false;
-  if (fingerFireInterval) clearInterval(fingerFireInterval);
+  if (fingerFireInterval) 
   fingerBullets = [];
 dashActive = false;
 dashCooldown = false;
@@ -2908,6 +3362,10 @@ function fireFingerMachineGun(){
 }
 }
 function restartGame(){
+
+  // ⏳ 시간 리셋
+  gameTime = 0;
+
 
   document.getElementById("gameOverScreen")
     .style.display = "none";
@@ -3082,8 +3540,13 @@ function activateAckermanSlash(){
   if (ackermanSlashActive || mikasaCooldown) return;
 
 mikasaCooldown = true;
-mikasaCooldownTime = Date.now();
-mikasaDurationTime = Date.now();
+mikasaCooldownTime = gameTime;
+mikasaDurationTime = gameTime;
+
+  mikasaEndTime = gameTime + skillDuration;
+  mikasaCooldownEndTime = gameTime + skillCooldownDuration;
+
+  invincible = true;
 
   ackermanSlashActive = true;
 
