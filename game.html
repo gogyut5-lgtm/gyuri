@@ -2282,18 +2282,38 @@ function updateCountdown(){
     "translate(-50%, -50%)";
 }
 function loop(time){
+
   if(gameOver) return;
-  
-  if (upgradeSelecting){
-    draw();
-    requestAnimationFrame(loop);
+
+  // 🔥 다른 탭 가면 게임 정지
+  if (isPaused) {
+
+    // 복귀 시 시간 폭주 방지
+    lastTime = time;
+
+    loopId = requestAnimationFrame(loop);
     return;
   }
 
+  // 🎴 강화창 선택 중
+  if (upgradeSelecting){
+
+    draw();
+
+    loopId = requestAnimationFrame(loop);
+    return;
+  }
+
+  // ⏳ 프레임 계산
   const delta = (time - lastTime) / 16.67;
+
+  // 🔥 탭 복귀 후 순간폭주 방지
+  const safeDelta = Math.min(delta, 2);
+
   lastTime = time;
 
-  update(delta);
+  update(safeDelta);
+
   draw();
   updateSkillUI();
   updateCountdown();
